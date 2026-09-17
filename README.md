@@ -35,15 +35,26 @@ Ce n'est pas une inspiration lointaine : c'est le même produit visuel.
   (`.doc-*`) pour le ticket de caisse, les blocs `.sub-*` pour l'abonnement,
   l'agenda pour les horaires.
 
-Seule différence assumée : le téléphone porte **trois** applications au lieu
-d'une, donc `openApp()` prend un identifiant et chaque application apporte sa
-propre barre d'onglets.
+Deux différences assumées :
+
+1. Le téléphone porte **trois** applications au lieu d'une, donc `openApp()`
+   prend un identifiant et chaque application apporte sa barre d'onglets.
+2. La « passe atelier » de devis60 est **écartée**, et `src/skin.css` la
+   remplace. Elle forçait les boutons en doré avec des `!important` posés sur
+   des sélecteurs génériques (`[class*='cta']`, `[class*='card']`), ce qui
+   rendait toute correction impossible. `skin.css` corrige trois choses qui
+   gênaient à l'usage : la barre d'action ne colle plus en bas de l'écran (les
+   actions descendent dans le flux et défilent avec le contenu ; seule la barre
+   de saisie de l'appel en direct reste fixe, comme un clavier), les cartes ne
+   sont plus bloquées à 60 % de largeur, et l'accent bleu de la couche de
+   production s'applique vraiment partout.
 
 ## Fichiers
 
 ```
 index.html              le téléphone : châssis, barre d'état, écran d'accueil
 src/theme.css           la couche visuelle — le CSS de devis60, tel quel
+src/skin.css            la couche d'ergonomie posée par-dessus (voir plus bas)
 src/app.js              le noyau : accueil, ouverture d'appli, setContent,
                         toast, barre d'onglets, feuille coulissante
 src/data.js             toutes les données, tirées du business plan v1.7

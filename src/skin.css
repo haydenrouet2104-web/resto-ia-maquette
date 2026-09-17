@@ -1,0 +1,126 @@
+/* =========================================================================
+   Resto IA — couche d'ergonomie, posée après theme.css.
+   Elle ne refait pas le design de devis60 : elle corrige ce qui gênait à
+   l'usage sur nos écrans — la barre d'action dorée collée en bas, les cartes
+   bloquées à 60 % de largeur, les blocs trop serrés. Tout le reste (palette,
+   typographies, châssis, composants) reste celui de devis60.
+   ========================================================================= */
+
+/* ---------- 0. l'accent ----------
+   theme.js (la couche de production) repeint l'accent en bleu, mais seulement
+   sur `:root` : le bloc sombre de la feuille d'origine, plus spécifique
+   (`:root:not([data-theme="light"])`), le reprenait et ramenait le doré.
+   On le refixe ici, pour les trois états de thème. */
+:root,
+:root:not([data-theme="light"]),
+:root[data-theme="dark"]{
+  --accent:#7ea2ff;
+  --accent-ink:#b9cbff;
+  --accent-soft:#172a54;
+  --accent-text:#071020;
+  --accent-metal:linear-gradient(120deg,#d6e1ff 0%,#9db8ff 28%,#6f8fff 58%,#acc1ff 100%);
+  --rule-strong:#3a5076;
+}
+
+/* ---------- 1. la barre d'action ne colle plus en bas ----------
+   Les actions d'un écran vivent maintenant dans le flux, à la fin du contenu :
+   elles défilent avec lui au lieu de manger un quart de l'écran en permanence.
+   Seule la barre de saisie de l'appel en direct reste fixe, comme un clavier. */
+.content .ctabar{
+  padding:4px 0 2px;
+  gap:10px;
+}
+.content .ctabar:first-child{padding-top:0}
+
+.actionbar{background:var(--surface);border-top:1px solid var(--rule)}
+.actionbar .ctabar{padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px))}
+
+/* ---------- 2. boutons ---------- */
+.cta{
+  border-radius:14px;
+  padding:13px 16px;
+  font-size:15.5px;
+  font-weight:600;
+  letter-spacing:.005em;
+  background:linear-gradient(135deg,#9db8ff,#6f8fff);
+  color:#071020;
+  border:none;
+  box-shadow:0 10px 24px -14px rgba(111,143,255,.9);
+}
+.cta:active{transform:translateY(1px)}
+.cta svg{stroke:#071020}
+
+.sec{
+  border-radius:14px;
+  padding:12px 14px;
+  font-size:14px;
+  font-weight:500;
+  background:var(--surface-2);
+  border:1px solid var(--rule);
+  color:var(--ink-2);
+}
+.sec:active{transform:translateY(1px)}
+.secrow{gap:10px}
+
+/* ---------- 3. cartes ----------
+   devis60 fixe .card à 60 % : c'est fait pour une liste de devis, pas pour des
+   commandes de cuisine ou des réglages. */
+.card{width:100%;min-width:0;border-radius:16px;padding:14px 16px}
+.list{gap:10px;padding-bottom:20px}
+
+/* ---------- 4. respiration ---------- */
+.content{padding-bottom:6px}
+.topbar{padding-top:6px}
+h1{font-size:25px;line-height:1.16}
+.sub{font-size:13.5px;line-height:1.55;color:var(--ink-2)}
+.chip-row{gap:8px;padding-top:12px}
+.chip{padding:6px 12px;font-size:12px;white-space:nowrap}
+.stats{gap:9px;grid-template-columns:repeat(auto-fit,minmax(84px,1fr))}
+.stat{padding:12px 12px;border-radius:14px}
+.stat .v{font-size:22px}
+.stat .l{font-size:9px;line-height:1.3}
+.journaltabs{margin-top:14px;padding:5px}
+.jtab{padding:9px 6px;font-size:12.5px}
+.menu,.acctinfo,.fieldgrp,.lines,.pricecard,.calcdetail{border-radius:16px}
+.note{margin-top:14px;font-size:12.5px;line-height:1.6}
+.alert-banner{border-radius:16px;font-size:12.5px;line-height:1.5}
+
+/* ---------- 5. barre d'onglets ---------- */
+.navbar{padding:8px 8px 22px}
+.navitem{gap:5px;opacity:.55}
+.navitem.on{opacity:1}
+.navitem span{font-size:10px;letter-spacing:.04em}
+
+/* ---------- 6. écran de connexion ---------- */
+.landing{gap:8px}
+.landing h1{font-size:30px}
+.landing .sub{max-width:30ch}
+.landing-btns{margin-top:26px;gap:11px}
+.landing-demo{margin-top:10px;font-size:13px}
+
+/* ---------- 7. l'appel en direct ---------- */
+.thread{gap:14px;padding-bottom:18px}
+.row.me .bub{border-radius:18px 18px 6px 18px}
+.row.bot .bub{font-size:15px;line-height:1.55}
+.quickreplies{padding:10px 16px 2px}
+.qreply{padding:9px 15px}
+.composer{padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+
+/* ---------- 8. feuille coulissante ---------- */
+.docsheet{border-radius:0 0 26px 26px}
+.docsheet-bar{padding:15px 18px}
+.docsheet-bar b{font-family:var(--f-display);font-size:16.5px;font-weight:600}
+.docsheet-body{padding:16px 18px 30px}
+
+/* ---------- 9. tuiles de sélection ---------- */
+.m{border-radius:14px;padding:13px 6px}
+.grid{gap:9px}
+
+/* ---------- 10. mouvement ----------
+   Une transition courte sur ce qui change d'état, rien de plus. */
+.cta,.sec,.qchip,.qreply,.jtab,.m,.mkt-catchip,.pill,.menurow,.navitem{
+  transition:background-color .18s ease,border-color .18s ease,color .18s ease,transform .12s ease;
+}
+@media (prefers-reduced-motion:reduce){
+  .cta,.sec,.qchip,.qreply,.jtab,.m,.mkt-catchip,.pill,.menurow,.navitem{transition:none}
+}

@@ -66,7 +66,8 @@ Tous les chemins sont relatifs à `resto-ia/maquette/` dans le dépôt privé.
 | Un prix, un menu, un prospect, un forfait, un texte de règle | `src/data.js` | ne jamais écrire un chiffre en dur dans une app |
 | L'écran d'accueil du téléphone, les icônes de décor, l'ouverture d'appli, les toasts, les feuilles | `src/app.js` | |
 | Le châssis, la barre d'état, le pied de page | `index.html` | |
-| L'apparence | **normalement rien** — voir la règle 1 ci-dessous | `src/theme.css` |
+| L'ergonomie, les espacements, les boutons | `src/skin.css` | `src/theme.css`, qui est une copie |
+| L'apparence de fond (palette, châssis, composants) | **normalement rien** — voir la règle 1 | `src/theme.css` |
 
 **Ajouter une quatrième application** : créer `src/app-xxx.js` sur le même
 contrat que les trois autres (il se termine par un `RIA.register({…})`), puis
@@ -76,7 +77,7 @@ sur l'écran d'accueil.
 ## 4. Les règles qui ne se négocient pas
 
 1. **`src/theme.css` est le CSS de devis60, copié tel quel — on ne l'édite
-   pas.** Il contient les trois couches que le navigateur reçoit en production
+   pas ; les corrections vont dans `src/skin.css`, chargé après.** Il contient les trois couches que le navigateur reçoit en production
    (feuille de l'application, passe atelier, `devis60/src/theme.js`). Si
    devis60 change de peau, on recopie ; on ne bricole pas la copie. Et
    **aucune classe nouvelle** : un écran se compose avec les classes qui

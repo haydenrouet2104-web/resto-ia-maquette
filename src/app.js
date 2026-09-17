@@ -205,10 +205,23 @@ var RIA = (function(){
     return '<div class="stat"><div class="v">' + esc(valeur) + '</div><div class="l">' + esc(libelle) + '</div></div>';
   }
   function note(txt){ return '<p class="note">' + txt + '</p>'; }
+  /* Les actions d'un écran descendent dans le flux du contenu : elles défilent
+     avec lui au lieu d'occuper un bandeau fixe. Seule une vraie barre de
+     saisie (le composer de l'appel en direct, ses réponses rapides) reste
+     collée en bas, là où on l'attend. */
   function actionbar(html){
-    var a = $("actionbar");
+    var a = $("actionbar"), c = $("content"), vieux = c.querySelector(".ctabar");
+    if (vieux) vieux.parentNode.removeChild(vieux);
     if (!html){ a.hidden = true; a.innerHTML = ""; return a; }
-    a.hidden = false; a.innerHTML = html; return a;
+    if (html.indexOf("composer") !== -1 || html.indexOf("quickreplies") !== -1){
+      a.hidden = false; a.innerHTML = html; return a;
+    }
+    a.hidden = true; a.innerHTML = "";
+    var boite = document.createElement("div");
+    boite.innerHTML = html;
+    var barre = boite.querySelector(".ctabar") || boite.firstElementChild;
+    if (barre) c.appendChild(barre);
+    return c;
   }
 
   /* ---------- feuille coulissante (reprise de openDevisSheet dans devis60) ----------

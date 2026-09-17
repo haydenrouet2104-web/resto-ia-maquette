@@ -1,13 +1,16 @@
 /* =======================================================================
-   Resto IA — couche visuelle reprise de devis60, à l identique.
-   1. feuille de style de l application (devis60/src/app-html.js)
-   2. passe atelier (2e bloc <style> du meme fichier)
-   3. theme.js — la couche bleue injectee par le Worker en production
-   Ne rien reecrire ici sans raison : c est le rendu exact de devis60.
+   Resto IA — couche visuelle reprise de devis60.
+   1. la feuille de style de l'application      (devis60/src/app-html.js)
+   2. les ajustements v2 du meme fichier        (animations, navigation)
+   3. theme.js — la couche bleu nuit injectee par le Worker en production
+
+   La « passe atelier » de devis60 a ete ECARTEE : elle force les boutons en
+   dore avec des !important poses sur des selecteurs generiques
+   ([class*='cta'], [class*='card']), ce qui rendait toute correction
+   d'ergonomie impossible. Ce qui la remplace est dans skin.css.
    ======================================================================= */
 
-/* ---------- 1. feuille de style de l application ---------- */
-
+/* ---------- 1. feuille de style de l'application ---------- */
   :root{
     --bg:#0B0A08; --surface:#151310; --surface-2:#1D1A15; --surface-3:#28241C;
     --ink:#F5EFE0; --ink-2:#C9BFA0; --ink-3:#8C8368;
@@ -664,55 +667,7 @@
   html.standalone-mode .screen .statusbar{display:none}
   html.standalone-mode .navbar{padding-bottom:calc(env(safe-area-inset-bottom) + 9px)}
   html.standalone-mode .home .statusbar{padding-top:env(safe-area-inset-top);height:calc(28px + env(safe-area-inset-top))}
-<style>
-  /* Refined atelier visual system */
-  :root{
-    --bg:#0a0908;--surface:#12110f;--surface-2:#1a1815;--surface-3:#252119;
-    --ink:#f7f1e5;--ink-2:#cfc3a9;--ink-3:#918672;--rule:#30291f;--rule-strong:#55452b;
-    --accent:#e3b84e;--accent-ink:#f4d37a;--accent-soft:#332710;--accent-text:#171108;
-    --shadow-soft:0 18px 55px rgba(0,0,0,.32);--shadow-lift:0 10px 28px rgba(0,0,0,.38);
-  }
-  html{background:var(--page,#000);color-scheme:dark}
-  body{background:radial-gradient(circle at 50% -20%,rgba(93,70,25,.16),transparent 38%),var(--bg);font-family:var(--f-body);letter-spacing:.01em}
-  button,input,textarea,select{font:inherit}
-  button{transition:transform .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
-  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px}
-  header,.app-header,.topbar,[class*='header']{border-color:rgba(227,184,78,.18)!important}
-  main,.app,.shell,.page{position:relative}
-  main:before,.app:before,.shell:before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px);background-size:100% 4px;mix-blend-mode:soft-light}
-  h1,h2,h3,.display,.brand{font-family:var(--f-display);letter-spacing:-.025em}
-  h1{font-size:clamp(2rem,4vw,3.5rem);line-height:1.02}
-  p{line-height:1.65}
-  .card,.panel,.summary,.quote,.surface,[class*='card'],[class*='panel']{background:linear-gradient(145deg,rgba(32,28,22,.96),rgba(17,15,13,.98));border:1px solid rgba(207,177,104,.18);box-shadow:var(--shadow-soft);border-radius:18px}
-  .card:hover,.panel:hover,.summary:hover{border-color:rgba(227,184,78,.35)}
-  .badge,.eyebrow,.label,.step-label{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
-  .accent,.status,.price{color:var(--accent-ink)}
-  a{color:var(--accent-ink);text-underline-offset:4px}
-  textarea,input,select{background:rgba(8,7,6,.62)!important;border:1px solid var(--rule-strong)!important;color:var(--ink)!important;border-radius:12px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
-  textarea::placeholder,input::placeholder{color:#746b5a}
-  textarea:focus,input:focus,select:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px rgba(227,184,78,.12),inset 0 1px 0 rgba(255,255,255,.03)}
-  button.primary,.primary,.cta,[class*='primary'],[class*='cta']{background:linear-gradient(135deg,#f1cb67,#c8952b)!important;color:var(--accent-text)!important;border:1px solid #f6d887!important;box-shadow:0 8px 22px rgba(193,142,37,.2)}
-  button.primary:hover,.primary:hover,.cta:hover,[class*='primary']:hover,[class*='cta']:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(193,142,37,.3)}
-  button.secondary,.secondary{background:rgba(255,255,255,.025)!important;color:var(--ink-2)!important;border:1px solid var(--rule-strong)!important}
-  button.secondary:hover,.secondary:hover{border-color:var(--accent)!important;color:var(--ink)!important;background:rgba(227,184,78,.08)!important}
-  .messages,.conversation,.chat,.chat-list,[class*='conversation'],[class*='messages']{scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent}
-  .message,.bubble,[class*='message'],[class*='bubble']{border-radius:16px;box-shadow:0 5px 18px rgba(0,0,0,.16)}
-  .message.user,.bubble.user,[class*='user'] .message,[class*='user'] .bubble{background:linear-gradient(135deg,#6e561c,#4b3b18)!important;color:#fff6dc!important;border-color:rgba(244,211,122,.28)!important}
-  .message.assistant,.bubble.assistant,[class*='assistant'] .message,[class*='assistant'] .bubble{background:rgba(28,25,20,.95)!important;border-color:rgba(207,177,104,.16)!important}
-  .suggestion,.quick-action,.chip,[class*='suggestion'],[class*='quick']{border:1px solid var(--rule-strong)!important;background:rgba(255,255,255,.025)!important;color:var(--ink-2)!important;border-radius:999px!important}
-  .suggestion:hover,.quick-action:hover,.chip:hover,[class*='suggestion']:hover,[class*='quick']:hover{color:var(--ink)!important;border-color:var(--accent)!important;background:rgba(227,184,78,.09)!important;transform:translateY(-1px)}
-  .divider,hr{border-color:var(--rule)!important}
-  [aria-busy='true'],.loading{color:var(--ink-3)}
-  @media(max-width:700px){
-    body{font-size:14px}
-    .card,.panel,.summary,.quote,[class*='card'],[class*='panel']{border-radius:14px}
-    button{min-height:44px}
-    main,.app,.shell{padding-bottom:env(safe-area-inset-bottom)}
-  }
-  @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
-
-/* ---------- 2. passe atelier ---------- */
-
+/* ---------- 2. ajustements v2 ---------- */
   /* --- ajustements v2 : animations, navigation, écrans complémentaires --- */
   .navbar{padding:6px 10px 8px}
   /* trait "retour accueil" placé dans le flux, sous les onglets : plus aucun chevauchement */
@@ -859,7 +814,6 @@
 .device{box-shadow:0 18px 48px rgba(0,0,0,.28)}
 .caption{letter-spacing:.1em}
 .toast{border:1px solid rgba(221,184,74,.34);box-shadow:0 18px 48px rgba(0,0,0,.28)}
-
 /* ---------- 3. couche visuelle de production (theme.js) ---------- */
 
 :root {
