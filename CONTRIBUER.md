@@ -104,7 +104,12 @@ sur l'écran d'accueil.
    par défaut. En particulier : ne jamais éditer `devis60/src/app-html.js`,
    c'est une chaîne JavaScript de 175 000 signes qui casse le Worker au moindre
    faux pas.
-8. **Pas de workflow GitHub Actions.** GitHub Pages sert la branche
+8. **Toute modification d'un fichier de `src/` incrémente le `?v=` dans
+   `index.html`** — les cinq scripts et les deux feuilles de style, d'un coup.
+   Les navigateurs gardent l'ancienne version sinon, et on se retrouve avec un
+   noyau périmé qui fait tourner du code neuf : l'appli casse à l'écran sans
+   qu'aucun fichier soit en cause.
+9. **Pas de workflow GitHub Actions.** GitHub Pages sert la branche
    directement, et Cloudflare a déjà son intégration Git. Un workflow ferait
    doublon.
 
@@ -152,6 +157,7 @@ git remote add public https://github.com/haydenrouet2104-web/resto-ia-maquette.g
 - [ ] Aucun chiffre inventé : tout vient du business plan ou de `data.js`.
 - [ ] `node --check` passe sur chaque fichier modifié.
 - [ ] Aucune classe CSS inventée, aucun `<style>`, aucun `const`/`let`/fléchée.
+- [ ] Le `?v=` d'`index.html` a été incrémenté.
 
 ## 7. Pièges connus
 
