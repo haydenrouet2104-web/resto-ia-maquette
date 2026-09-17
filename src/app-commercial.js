@@ -1,881 +1,825 @@
 /* =========================================================================
-   Application « Commercial » — apporteur d’affaires indépendant.
-   Spécification : business plan v1.7, §5 (attribution et CRM), §6.1
-   (zone pilote, productivité) et §1.1 (taille réelle du marché).
-
-   Quatre onglets : Secteur (carte du terrain), Prospects (liste de travail),
-   Argumentaire (outil de porte), Gains (commission récurrente).
-
-   Le CRM attribue des prospects et des commissions ; il n’impose ni horaires,
-   ni itinéraire, ni sanction. Aucun suivi GPS continu.
+   Resto IA — application COMMERCIAL (apporteur d’affaires indépendant).
+   Même forme que devis60 : ES5 strict, une IIFE, aucune classe CSS nouvelle.
+   La marketplace de chantiers de devis60 (.mkt-*, .lead-*) devient ici la
+   liste des prospects et la fiche prospect.
+   Quatre onglets : Secteur · Prospects · Argumentaire · Gains.
+   Spécification : business plan v1.7 §5 (attribution et CRM), §6.1 (zone
+   pilote et productivité), §1.1 (taille réelle du marché).
    ========================================================================= */
+(function(){
+  "use strict";
 
-import { topbar, navbar, esc, el, on, compte, reduit } from './ui.js';
-import { ico } from './icons.js';
+  var $ = RIA.$, esc = RIA.esc, svg = RIA.svg;
 
-/* ------------------------------ constantes ------------------------------ */
+  /* ---------- chemins d’icônes, rendus par RIA.svg() ---------- */
+  var I = {
+    pin:     '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    tel:     '<path d="M6.6 3.5 4 6.1c-.7.7-.9 1.8-.5 2.7a20 20 0 0 0 11.7 11.7c.9.4 2 .2 2.7-.5l2.6-2.6-4.2-2.8-2 1.6a15 15 0 0 1-6.5-6.5l1.6-2z"/>',
+    chat:    '<path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
+    photo:   '<rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.6"/><path d="M8.5 7 10 4h4l1.5 3"/>',
+    horloge: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    agenda:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    euro:    '<path d="M17 6.5A6.5 6.5 0 0 0 8 12a6.5 6.5 0 0 0 9 5.5"/><path d="M4.5 10.5h8M4.5 13.5h8"/>',
+    check:   '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9"/>',
+    alerte:  '<path d="M12 4 3 19h18z"/><path d="M12 10v4M12 16.6h.01"/>',
+    doc:     '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h4"/>',
+    cible:   '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>',
+    pas:     '<path d="M9 20c-2 0-3-1.2-3-3 0-2 1.5-3 1.5-5.5C7.5 9 8.5 6 11 6s3 2.5 2.5 5.5C13 15 12 16 12 18c0 1.4-1 2-3 2z"/>',
+    stop:    '<circle cx="12" cy="12" r="9"/><path d="m8 8 8 8"/>',
+    eclair:  '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
+    boutique:'<path d="M4 9h16v11H4z"/><path d="M3 9l1.5-5h15L21 9"/><path d="M9 20v-6h6v6"/>'
+  };
 
-/* Couleur de chaque statut du CRM — uniquement des variables du thème. */
-const COUL = {
-  jamais:'var(--ink-3)', reserve:'var(--accent)', sansrep:'var(--ink-2)',
-  refus:'var(--bad)',    attente:'var(--warn)',   essai:'var(--info)',
-  client:'var(--ok)',    stop:'var(--bad)'
-};
-/* Noms courts pour les pastilles et les compteurs. */
-const COURT = {
-  jamais:'Jamais', reserve:'Réservé', sansrep:'Sans rép.', refus:'Refus',
-  attente:'Attente', essai:'Essai', client:'Client', stop:'Stop'
-};
-const ORDRE = ['jamais','reserve','sansrep','attente','essai','client','refus','stop'];
+  /* glyphes de vignette par type d’établissement (classe .mkt-media-photo) */
+  var TYPEG = {
+    "Kebab":  '<path d="M12 3c3.3 0 5 2.4 5 5H7c0-2.6 1.7-5 5-5z"/><path d="M6 11h12M7 15h10M9 19h6"/>',
+    "Tacos":  '<path d="M4 18a8 8 0 0 1 16 0z"/><path d="M8 18a4 4 0 0 1 8 0"/>',
+    "Pizza":  '<path d="M12 4 21 20H3z"/><circle cx="12" cy="13" r="1"/><circle cx="9.5" cy="17" r="1"/><circle cx="14.5" cy="17" r="1"/>',
+    "Burger": '<path d="M4 9a8 4 0 0 1 16 0z"/><path d="M4 12.5h16"/><path d="M4 16a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3z"/>'
+  };
 
-const JOUR_MS = 86400000;
-const RESERVATION = 3 * JOUR_MS;      // §5 : verrou de 3 jours
-const COOLDOWN    = 60 * JOUR_MS;     // §5 : 2 mois avant de pouvoir reprendre
+  var RESA = 3 * 24 * 3600;          /* réservation de 3 jours, en secondes */
+  var ORDRE = ["jamais","reserve","sansrep","refus","attente","essai","client","stop"];
+  var PREUVES = [
+    { id:"appel", ico:"tel",   nom:"Appel depuis le numéro professionnel",
+      det:"Restaurant, commercial, date, heure et durée sont tracés automatiquement." },
+    { id:"canal", ico:"chat",  nom:"Message depuis le canal Resto IA",
+      det:"Canal, date, contenu et statut de livraison sont tracés." },
+    { id:"photo", ico:"photo", nom:"Photo de devanture",
+      det:"Sans visages ni plaques d’immatriculation. Le résultat de la visite est saisi avec." }
+  ];
 
-/* Position du commercial sur la carte, en pourcentage comme les prospects. */
-const MOI = { x:48, y:55 };
-const METRE = 12;                      // 1 point de la grille ≈ 12 m de trottoir
-const VITESSE = 75;                    // marche, m/min
-const PAR_VISITE = 12;                 // min passées devant une porte
+  /* ---------- état local de l’application ---------- */
+  var etat = null;
 
-/* Îlots dessinés à la main : [x, y, largeur, hauteur] dans le repère 320×240. */
-const ILOTS = [
-  [48,8,62,52],[118,8,74,52],[200,8,54,52],[262,8,50,52],
-  [42,68,68,62],[118,68,74,62],[200,68,54,62],[262,68,50,62],
-  [36,138,74,56],[118,138,74,56],[200,138,54,56],[262,138,50,56],
-  [30,202,80,30],[118,202,74,30],[200,202,54,30],[262,202,50,30]
-];
-
-/* Les trois preuves de visite admises — §5. L’audio n’en fait pas partie. */
-const PREUVES = [
-  { id:'appel',   ic:'phone',  nom:'Appel depuis le numéro professionnel Resto IA',
-    det:'Restaurant, date, heure et durée horodatés dans le CRM.' },
-  { id:'message', ic:'sms',    nom:'Message depuis le canal Resto IA',
-    det:'Canal, date, contenu et statut de livraison.' },
-  { id:'photo',   ic:'camera', nom:'Photo de devanture',
-    det:'Sans visages ni plaques d’immatriculation. Rien d’autre n’est capté.' }
-];
-
-/* Pitch de porte : quatre segments de 5 secondes. */
-const PITCH = [
-  { t:0,  txt:"Bonjour, Nadia, Resto IA — une minute, hors coup de feu ?" },
-  { t:5,  txt:"Aux heures de pointe, les appels que vous ne décrochez pas commandent chez le voisin." },
-  { t:10, txt:"On met un assistant vocal sur votre ligne : il répond, prend la commande, et rien ne part en cuisine tant que le client n’a pas confirmé." },
-  { t:15, txt:"Vous gardez votre numéro, on n’encaisse rien. Dix minutes d’installation, essai gratuit — je vous fais écouter ?" }
-];
-
-/* Extrait d’appel joué au gérant sur le pas de la porte. */
-const DEMO = [
-  { qui:'ia',  txt:"Bonsoir, assistant vocal automatisé du Comptoir, je prends votre commande ?" },
-  { qui:'cli', txt:"Un tacos M poulet, sauce algérienne." },
-  { qui:'ia',  txt:"C’est noté, frites et boisson comprises. Je vous envoie le récapitulatif par SMS — vous me confirmez ?" },
-  { qui:'cli', txt:"Oui, je valide." },
-  { qui:'sys', txt:"Commande #248 confirmée → écran cuisine" }
-];
-
-/* ------------------------------ utilitaires ------------------------------ */
-
-const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
-const pad  = n => String(n).padStart(2,'0');
-
-/** « 2 j 04:11:57 » — le temps restant d’une réservation. */
-function resteTxt(ms){
-  if (ms <= 0) return 'expiré';
-  const s = Math.floor(ms/1000), j = Math.floor(s/86400);
-  return (j ? j + ' j ' : '') + pad(Math.floor(s%86400/3600)) + ':' + pad(Math.floor(s%3600/60)) + ':' + pad(s%60);
-}
-const dateCourte = ts => new Date(ts).toLocaleDateString('fr-FR',{ day:'2-digit', month:'long' });
-
-/* ============================== le module ============================== */
-
-export default {
-  id:'commercial',
-  nom:'Commercial',
-  sousTitre:'Nadia B. · Lyon 7e',
-  accent:'#7fa8d8',
-  fond:'linear-gradient(150deg,#8fb8e8,#3a6fb0)',
-  encre:'#07101c',
-  icone:'pin',
-  badge:3,
-
-  css:`
-  .cm-map{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--rule);
-    background:linear-gradient(160deg,#12100c,#0c0b08)}
-  .cm-map svg{display:block;width:100%;height:auto}
-  .cm-map .cm-legende{position:absolute;left:9px;bottom:8px;display:flex;gap:6px;align-items:center;
-    font-family:var(--f-mono);font-size:9px;letter-spacing:.06em;color:var(--ink-3);
-    background:rgba(11,10,8,.66);border:1px solid var(--rule);border-radius:999px;padding:3px 8px}
-  .cm-pt{cursor:pointer;transform-box:fill-box;transform-origin:center;
-    animation:cm-pop .42s var(--ease) both;transition:opacity .42s var(--ease)}
-  .cm-pt.is-off{opacity:.11}
-  .cm-pt:active{transform:scale(.86)}
-  @keyframes cm-pop{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:scale(1)}}
-  .cm-halo{transform-box:fill-box;transform-origin:center;animation:cm-ping 2.4s ease-out infinite}
-  @keyframes cm-ping{0%{transform:scale(.5);opacity:.55}100%{transform:scale(2.6);opacity:0}}
-  .cm-route{stroke-dasharray:5 6;animation:cm-dash 1.1s linear infinite}
-  @keyframes cm-dash{to{stroke-dashoffset:-22}}
-  .cm-cnt{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-  .cm-cnt button{border:1px solid var(--rule);border-radius:11px;background:var(--surface);
-    padding:7px 4px 6px;display:grid;justify-items:center;gap:2px;transition:border-color .2s,background .2s}
-  .cm-cnt button b{font-family:var(--f-mono);font-size:15px;color:var(--c,var(--ink))}
-  .cm-cnt button span{font-size:9px;color:var(--ink-3);letter-spacing:.02em}
-  .cm-cnt button[aria-pressed="true"]{border-color:var(--rule-strong);background:var(--accent-soft)}
-  .cm-cnt button[aria-pressed="true"] span{color:var(--ink-2)}
-  .cm-etape{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
-  .cm-etape+.cm-etape{border-top:1px dashed var(--rule)}
-  .cm-no{width:21px;height:21px;border-radius:50%;flex:none;display:grid;place-items:center;
-    background:var(--info-soft);color:var(--info);font-family:var(--f-mono);font-size:10.5px;
-    border:1px solid rgba(127,168,216,.4)}
-  .cm-etape .tx{flex:1;min-width:0}
-  .cm-etape .tx b{display:block;font-size:12.5px}
-  .cm-etape .tx span{display:block;font-size:10.5px;color:var(--ink-3)}
-  .cm-search{display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:11px;
-    border:1px solid var(--rule);background:var(--surface)}
-  .cm-search svg{width:15px;height:15px;color:var(--ink-3);flex:none}
-  .cm-search input{flex:1;border:0;background:none;padding:10px 0;font-size:13.5px;outline:none}
-  .cm-pastille{width:9px;height:9px;border-radius:50%;flex:none;background:var(--c);
-    box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
-  .cm-cd{font-size:10.5px;color:var(--accent);letter-spacing:.02em;flex:none}
-  .cm-vide{text-align:center;color:var(--ink-3);font-size:12px;padding:22px 0}
-  .cm-fiche-h{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
-  .cm-meta{display:grid;gap:7px}
-  .cm-meta div{display:flex;gap:10px;justify-content:space-between;font-size:12px;border-bottom:1px dashed var(--rule);padding-bottom:6px}
-  .cm-meta div:last-child{border-bottom:0;padding-bottom:0}
-  .cm-meta b{color:var(--ink);font-weight:600;text-align:right}
-  .cm-meta span{color:var(--ink-3)}
-  .cm-acts{display:grid;gap:7px}
-  .cm-acts .cta[disabled]{opacity:.42;pointer-events:none}
-  .cm-preuves{display:grid;gap:7px;max-height:0;overflow:hidden;opacity:0;
-    transition:max-height .38s var(--ease),opacity .28s ease}
-  .cm-preuves.is-on{max-height:420px;opacity:1}
-  .cm-shot{position:relative;border-radius:12px;overflow:hidden}
-  .cm-flash{position:absolute;inset:0;background:var(--ink);opacity:0;pointer-events:none;z-index:2}
-  .cm-flash.is-on{animation:cm-obtu .55s ease-out}
-  @keyframes cm-obtu{0%{opacity:0}10%{opacity:.9}30%{opacity:.1}100%{opacity:0}}
-  .cm-vue{position:relative;height:74px;border-radius:12px;border:1px solid var(--rule);
-    background:linear-gradient(170deg,var(--surface-3),var(--surface));overflow:hidden}
-  .cm-vue svg{position:absolute;inset:0;width:100%;height:100%;color:var(--ink-3);opacity:.55}
-  .cm-acc{border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden}
-  .cm-acc+.cm-acc{margin-top:7px}
-  .cm-acc>button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:11px 13px;font-size:12.5px}
-  .cm-acc>button .chev{transition:transform .3s var(--ease)}
-  .cm-acc.is-on>button .chev{transform:rotate(90deg)}
-  .cm-acc.is-on{border-color:var(--rule-strong)}
-  .cm-acc-b{max-height:0;overflow:hidden;opacity:0;transition:max-height .36s var(--ease),opacity .26s ease}
-  .cm-acc.is-on .cm-acc-b{max-height:200px;opacity:1}
-  .cm-acc-b p{padding:0 13px 12px;font-size:12px;color:var(--ink-2);line-height:1.55}
-  .cm-chrono{height:4px;border-radius:2px;background:var(--surface-3);overflow:hidden}
-  .cm-chrono i{display:block;height:100%;width:0;border-radius:2px;background:var(--info)}
-  .cm-seg-p{font-size:12.5px;line-height:1.55;color:var(--ink-3);transition:color .3s ease}
-  .cm-seg-p.is-on{color:var(--ink)}
-  .cm-wv{display:flex;align-items:flex-end;justify-content:center;gap:2px;height:30px}
-  .cm-wv i{width:3px;height:3px;border-radius:2px;background:var(--info);transition:height .1s linear}
-  .cm-bulle{border-radius:12px;padding:8px 11px;font-size:12px;line-height:1.5;max-width:88%}
-  .cm-bulle.ia{background:var(--info-soft);border:1px solid rgba(127,168,216,.28);align-self:flex-start}
-  .cm-bulle.cli{background:var(--surface-2);border:1px solid var(--rule);align-self:flex-end}
-  .cm-bulle.sys{background:var(--ok-soft);border:1px solid rgba(95,191,139,.3);color:var(--ok);
-    align-self:center;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;max-width:100%}
-  .cm-fil{display:flex;flex-direction:column;gap:7px;min-height:118px}
-  .cm-mb{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;align-items:end;height:104px}
-  .cm-mb .c{display:grid;justify-items:center;gap:5px;height:100%;align-content:end}
-  .cm-mb i{display:block;width:100%;height:0;border-radius:5px 5px 2px 2px;
-    background:linear-gradient(180deg,var(--info),rgba(127,168,216,.35));
-    transition:height .9s var(--ease)}
-  .cm-mb .c.on i{background:linear-gradient(180deg,var(--accent-bright),var(--accent-soft))}
-  .cm-mb small{font-size:9.5px;color:var(--ink-3);font-family:var(--f-mono)}
-  .cm-fn{display:grid;gap:7px}
-  .cm-fn .l{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px}
-  .cm-fn .l span{color:var(--ink-2)}
-  .cm-fn .l b{font-family:var(--f-mono)}
-  .cm-fn .bar i{width:0;background:var(--c,var(--accent));transition:width .9s var(--ease)}
-  .cm-range{width:100%;-webkit-appearance:none;appearance:none;height:22px;background:none}
-  .cm-range::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:var(--surface-3)}
-  .cm-range::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;
-    margin-top:-7px;background:var(--info);border:2px solid var(--bg);cursor:grab}
-  .cm-range::-moz-range-track{height:5px;border-radius:3px;background:var(--surface-3)}
-  .cm-range::-moz-range-thumb{width:17px;height:17px;border:2px solid var(--bg);border-radius:50%;background:var(--info)}
-  .cm-proj{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-  .cm-proj div{border:1px solid var(--rule);border-radius:11px;background:var(--surface);padding:9px 11px;display:grid;gap:2px}
-  .cm-proj b{font-family:var(--f-display);font-size:19px;font-variant-numeric:tabular-nums}
-  .cm-proj span{font-size:10px;color:var(--ink-3)}
-  `,
-
-  /* ====================================================================== */
-  monter(win, api){
-    const D = api.data, F = api.fmt;
-
-    /* --------------------------- minuteurs --------------------------- */
-    const intervalles = new Set(), delais = new Set(), trames = new Set();
-    const chaque = (fn, ms) => { const id = setInterval(fn, ms); intervalles.add(id); return id; };
-    const apres  = (fn, ms) => { const id = setTimeout(() => { delais.delete(id); fn(); }, ms); delais.add(id); return id; };
-    function boucle(fn){                       // rAF annulable
-      let id = 0, vivant = true;
-      const pas = t => {
-        trames.delete(id);
-        if (!vivant) return;
-        if (fn(t) === false){ vivant = false; return; }
-        id = requestAnimationFrame(pas); trames.add(id);
-      };
-      id = requestAnimationFrame(pas); trames.add(id);
-      return () => { vivant = false; cancelAnimationFrame(id); trames.delete(id); };
+  function initEtat(){
+    if (etat) return;
+    var p = [], i, s;
+    for (i = 0; i < D.prospects.length; i++){
+      s = D.prospects[i];
+      p.push({ id:s.id, nom:s.nom, type:s.type, adr:s.adr, statut:s.statut, dist:s.dist,
+               info:s.info, derniere:s.derniere || "", preuve:s.preuve || "",
+               objection:s.objection || "", restant:0, bloque:false });
     }
-    let nettoyerOnglet = null;                 // animations propres à l’onglet courant
+    /* Tacos Avenue est déjà réservé : il reste 2 jours et quelques heures. */
+    for (i = 0; i < p.length; i++) if (p[i].statut === "reserve") p[i].restant = 2 * 86400 + 3 * 3600 + 12 * 60;
+    etat = { p:p, onglet:"secteur", fs:"", q:"", filtre:"tous",
+             clients:Math.round(dernierGain() / D.commission), pitch:0, pitchOn:false, gtab:"mois" };
+  }
 
-    /* ------------------------------ état ------------------------------ */
-    const S = {
-      onglet:'secteur',
-      filtre:null,                             // statut filtré sur la carte
-      q:'', fstat:'tous',
-      tournee:false,
-      prospects:D.PROSPECTS.map(p => Object.assign({}, p)),
-      clientsBase:D.COMMERCIAL.clientsActifs   // portefeuille hors zone comprise
-    };
-    /* La réservation en cours dans les données devient une vraie échéance. */
-    S.prospects.forEach(p => { if (p.statut === 'reserve') p.expire = Date.now() + (2*24 + 4) * 3600000; });
-    const clientsInit = S.prospects.filter(p => p.statut === 'client').length;
+  function dernierGain(){ return D.commercial.gains[D.commercial.gains.length - 1].v; }
+  function prospect(id){ var i; for (i = 0; i < etat.p.length; i++) if (String(etat.p[i].id) === String(id)) return etat.p[i]; return null; }
+  function compte(k){ var n = 0, i; for (i = 0; i < etat.p.length; i++) if (etat.p[i].statut === k) n++; return n; }
 
-    const trouver = id => S.prospects.find(p => p.id === +id);
-    const nb = st => S.prospects.filter(p => p.statut === st).length;
-    /* Portefeuille facturé : la base du BP, corrigée des mouvements de la zone. */
-    const clientsActifs = () => S.clientsBase + (nb('client') - clientsInit);
-    /* Ce qui demande une action : réservé, en attente, sans réponse. */
-    const aTraiter = () => nb('reserve') + nb('attente') + nb('sansrep');
+  /* ---------- formatage ---------- */
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function dist(m){ return m < 1000 ? m + " m" : (m / 1000).toFixed(1).replace(".", ",") + " km"; }
+  function marche(m){ return Math.max(1, Math.round(m / 75)) + " min à pied"; }
+  function restant(s){
+    if (s <= 0) return "expiré";
+    var j = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
+        m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (j > 0) return j + " j " + pad(h) + ":" + pad(m) + ":" + pad(sec);
+    return pad(h) + ":" + pad(m) + ":" + pad(sec);
+  }
+  function dansNJours(n){
+    var d = new Date(Date.now() + n * 86400000);
+    return pad(d.getDate()) + "/" + pad(d.getMonth() + 1);
+  }
 
-    function majBadge(){
-      const n = aTraiter();
-      api.badge(n);
-      const c = win.querySelector('[data-att]');
-      if (c) c.textContent = n + ' à traiter';
-    }
+  /* ---------- fragments repris de devis60 ---------- */
+  function entete(eyebrow, titre, sub, chips){
+    return '<div class="topbar"><span class="eyebrow">' + esc(eyebrow) + '</span><h1>' + esc(titre) + '</h1>' +
+      (sub ? '<p class="sub">' + esc(sub) + '</p>' : "") +
+      (chips ? '<div class="chip-row">' + chips + '</div>' : "") + '</div>';
+  }
+  function barre(lbl, pct, ton, val){
+    return '<div class="charge-wrap"><div class="charge-lbl">' + esc(lbl) + '</div>' +
+      '<div class="charge-bar"><div class="charge-fill ' + ton + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="charge-lbl">' + esc(val) + '</div></div>';
+  }
+  function ton(pct){ return pct >= 75 ? "ok" : pct >= 40 ? "haut" : "bas"; }
+  function metarow(ico, lbl, val){
+    return '<div class="lead-metarow">' + svg(I[ico]) + '<div><div class="lm-lbl">' + esc(lbl) + '</div>' +
+      '<div class="lm-val">' + esc(val) + '</div></div></div>';
+  }
+  function subStep(num, titre, txt){
+    return '<div class="sub-step"><span class="num">' + esc(num) + '</span><span class="tx"><b>' + esc(titre) + '</b>' +
+      '<span>' + esc(txt) + '</span></span></div>';
+  }
+  function moneyRow(k, d, v){
+    return '<div class="sub-money-row"><div><div class="k">' + esc(k) + '</div>' +
+      (d ? '<div class="d">' + esc(d) + '</div>' : "") + '</div><div class="v">' + esc(v) + '</div></div>';
+  }
+  function fact(ico, titre, sub, btn, cle){
+    return '<div class="factcard"><span class="fc-ico">' + svg(I[ico]) + '</span>' +
+      '<span class="fc-info"><span class="fc-title">' + esc(titre) + '</span>' +
+      '<span class="fc-sub">' + esc(sub) + '</span></span>' +
+      '<button class="fc-btn" data-regle="' + esc(cle) + '">' + esc(btn) + '</button></div>';
+  }
+  function banniere(txt){
+    return '<div class="alert-banner">' + svg(I.alerte) + '<div>' + txt + '</div></div>';
+  }
 
-    /* ---------------------------- la carte ---------------------------- */
-    const CX = p => 8 + p.x/100 * 304;
-    const CY = p => 6 + p.y/100 * 228;
+  /* ---------- carte prospect (la .mkt-card de la marketplace devis60) ---------- */
+  function carte(p){
+    var s = D.statuts[p.statut];
+    var droite = p.statut === "reserve"
+      ? '<span class="mkt-time" id="t' + p.id + '">' + restant(p.restant) + '</span>'
+      : '<span class="mkt-time">' + esc(p.derniere ? p.derniere : dist(p.dist) + " · " + marche(p.dist)) + '</span>';
+    return '<div class="mkt-card" data-id="' + p.id + '">' +
+      '<div class="mkt-media"><svg class="mkt-media-photo" viewBox="0 0 24 24" fill="none" stroke-width="1.6" ' +
+        'stroke-linecap="round" stroke-linejoin="round">' + (TYPEG[p.type] || I.boutique) + '</svg>' +
+        (p.preuve ? '<span class="mkt-photobadge">' + svg(I.check) + esc(p.preuve) + '</span>' : "") + '</div>' +
+      '<div class="mkt-body">' +
+        '<div class="mkt-toprow"><div class="mkt-title">' + esc(p.nom) + '</div>' +
+          '<div class="mkt-dist">' + esc(dist(p.dist)) + '</div></div>' +
+        '<div class="mkt-sub">' + svg(I.pin) + esc(p.type + " · " + p.adr) + '</div>' +
+        '<div class="mkt-bottom"><span class="mkt-delai">' + svg(I.cible) + '<span>' + esc(s.nom) + '</span></span>' +
+          droite + '</div>' +
+      '</div></div>';
+  }
+  function liste(arr){
+    if (!arr.length) return '<div class="empty">Aucun prospect ne correspond. Enlevez le filtre ou changez la recherche.</div>';
+    var h = "", i;
+    for (i = 0; i < arr.length; i++) h += carte(arr[i]);
+    return h;
+  }
+  function brancherCartes(racine){
+    var c = racine.querySelectorAll(".mkt-card"), i;
+    for (i = 0; i < c.length; i++) c[i].addEventListener("click", function(){ fiche(prospect(this.dataset.id)); });
+  }
 
-    function routeOrdonnee(){                  // plus proche voisin depuis « vous êtes ici »
-      const reste = S.prospects.filter(p => p.statut === 'jamais');
-      const ordre = []; let cur = MOI;
-      while (reste.length){
-        let k = 0, best = Infinity;
-        reste.forEach((p,i) => { const d = dist(cur,p); if (d < best){ best = d; k = i; } });
-        cur = reste[k]; ordre.push(cur); reste.splice(k,1);
+  /* ---------- minuteur des réservations : le temps descend réellement ---------- */
+  function tick(){
+    var change = false, i, p, el;
+    for (i = 0; i < etat.p.length; i++){
+      p = etat.p[i];
+      if (p.statut !== "reserve" || p.restant <= 0) continue;
+      p.restant--;
+      if (p.restant <= 0){
+        p.statut = "jamais"; p.bloque = true;
+        p.info = "Réservation expirée sans action — revenu au commun";
+        change = true;
+      } else {
+        el = $("t" + p.id);
+        if (el) el.textContent = restant(p.restant);
       }
-      return ordre;
     }
-    function metresTournee(ordre){
-      let cur = MOI, m = 0;
-      ordre.forEach(p => { m += dist(cur,p) * METRE; cur = p; });
-      return Math.round(m);
+    if (change){
+      RIA.toast("Réservation expirée : le prospect est revenu au commun.");
+      refresh();
     }
+  }
 
-    function svgRoute(){
-      if (!S.tournee) return '';
-      const ordre = routeOrdonnee();
-      if (!ordre.length) return '';
-      const pts = [MOI].concat(ordre).map(p => CX(p).toFixed(1) + ',' + CY(p).toFixed(1)).join(' ');
-      return '<polyline class="cm-route" points="' + pts + '" fill="none" stroke="var(--info)" stroke-width="1.6" stroke-linejoin="round"/>' +
-        ordre.map((p,i) =>
-          '<g><circle cx="' + CX(p).toFixed(1) + '" cy="' + (CY(p)-13).toFixed(1) + '" r="7" fill="var(--bg)" stroke="var(--info)" stroke-width="1"/>' +
-          '<text x="' + CX(p).toFixed(1) + '" y="' + (CY(p)-10).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="var(--info)">' + (i+1) + '</text></g>'
-        ).join('');
-    }
+  function refresh(){
+    if (etat.onglet === "prospects") goProspects();
+    else if (etat.onglet === "argu") goArgu();
+    else if (etat.onglet === "gains") goGains();
+    else goSecteur();
+  }
 
-    function svgPoints(){
-      return S.prospects.map((p,i) => {
-        const off = S.filtre && S.filtre !== p.statut;
-        const c = COUL[p.statut];
-        const creux = p.statut === 'stop' || p.statut === 'jamais';
-        return '<g class="cm-pt' + (off ? ' is-off' : '') + '" data-p="' + p.id + '" ' +
-          'style="animation-delay:' + (reduit() ? 0 : (i*45)) + 'ms" role="button" tabindex="0" ' +
-          'aria-label="' + esc(p.nom + ' — ' + D.STATUTS[p.statut].nom) + '">' +
-          '<circle cx="' + CX(p).toFixed(1) + '" cy="' + CY(p).toFixed(1) + '" r="13" fill="transparent"/>' +
-          '<circle cx="' + CX(p).toFixed(1) + '" cy="' + CY(p).toFixed(1) + '" r="9" fill="' + c + '" opacity=".16"/>' +
-          '<circle cx="' + CX(p).toFixed(1) + '" cy="' + CY(p).toFixed(1) + '" r="5" ' +
-            (creux ? 'fill="var(--bg)" stroke="' + c + '" stroke-width="1.6"' : 'fill="' + c + '"') + '/>' +
-        '</g>';
-      }).join('');
-    }
+  /* =======================================================================
+     FICHE PROSPECT — la .lead-* de devis60, avec des actions qui agissent
+     ======================================================================= */
+  function fiche(p){
+    if (!p) return;
+    var s = D.statuts[p.statut];
+    var actions = [];
+    var cta = null;
 
-    function carte(){
-      const ilots = ILOTS.map(b =>
-        '<rect x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] + '" rx="4" ' +
-        'fill="var(--surface-2)" stroke="var(--rule)" stroke-width=".7"/>').join('');
-      return '<div class="cm-map">' +
-        '<svg viewBox="0 0 320 240" role="img" aria-label="Carte du secteur Guillotière">' +
-          /* le Rhône, à l’ouest du secteur */
-          '<path d="M0 0 L44 0 C36 70 30 140 26 240 L0 240 Z" fill="var(--info)" opacity=".13"/>' +
-          '<path d="M44 0 C36 70 30 140 26 240" fill="none" stroke="var(--info)" stroke-width="1" opacity=".45"/>' +
-          '<path d="M34 24 C28 90 22 160 18 236" fill="none" stroke="var(--info)" stroke-width=".6" opacity=".25"/>' +
-          ilots +
-          '<text x="7" y="120" font-family="IBM Plex Mono, monospace" font-size="6.5" fill="var(--info)" opacity=".7" transform="rotate(-84 7 120)">LE RHÔNE</text>' +
-          '<text x="114" y="132" font-family="IBM Plex Mono, monospace" font-size="6" fill="var(--ink-3)" transform="rotate(-90 114 132)">AV. JEAN-JAURÈS</text>' +
-          '<text x="122" y="199" font-family="IBM Plex Mono, monospace" font-size="6" fill="var(--ink-3)">COURS GAMBETTA</text>' +
-          '<g id="cm-route">' + svgRoute() + '</g>' +
-          '<g id="cm-pts">' + svgPoints() + '</g>' +
-          /* vous êtes ici */
-          '<g class="cm-moi">' +
-            '<circle class="cm-halo" cx="' + CX(MOI).toFixed(1) + '" cy="' + CY(MOI).toFixed(1) + '" r="6" fill="var(--accent)"/>' +
-            '<circle cx="' + CX(MOI).toFixed(1) + '" cy="' + CY(MOI).toFixed(1) + '" r="3.4" fill="var(--accent-bright)" stroke="var(--bg)" stroke-width="1.4"/>' +
-          '</g>' +
-        '</svg>' +
-        '<span class="cm-legende">Vous êtes ici · position ponctuelle, aucun suivi continu</span>' +
-      '</div>';
+    if (p.statut === "stop"){
+      cta = null;
+    } else if (p.statut === "reserve"){
+      cta = { a:"rendre", l:"Rendre ce prospect au commun" };
+      actions = ["visite","rappel","essai","stop"];
+    } else if (p.statut === "jamais" || p.statut === "sansrep" || p.statut === "refus"){
+      cta = { a:"prendre", l:"Je prends ce prospect" };
+      actions = ["visite","rappel","essai","stop"];
+    } else {
+      cta = { a:"visite", l:"Marquer une visite" };
+      actions = ["rappel","essai","stop"];
     }
 
-    /* ========================= vue 1 — Secteur ========================= */
-    function vueSecteur(){
-      const ordre = routeOrdonnee();
-      const m = metresTournee(ordre);
-      const minutes = Math.round(m / VITESSE + ordre.length * PAR_VISITE);
-      const compteurs = ORDRE.map(st =>
-        '<button data-st="' + st + '" aria-pressed="' + (S.filtre === st) + '" style="--c:' + COUL[st] + '">' +
-          '<b>' + nb(st) + '</b><span>' + esc(COURT[st]) + '</span></button>').join('');
-
-      return '<div class="sec">' +
-          '<div class="sec-head"><h3>' + esc(D.COMMERCIAL.zone) + '</h3>' +
-            '<span class="chip info">' + D.COMMERCIAL.ciblesZone + ' cibles</span></div>' +
-          carte() +
-          '<div class="cm-cnt">' + compteurs + '</div>' +
-          '<p class="muted" style="font-size:11px">' +
-            (S.filtre ? 'Filtre : <b style="color:' + COUL[S.filtre] + '">' + esc(D.STATUTS[S.filtre].nom) + '</b> — ' + esc(D.STATUTS[S.filtre].def) + ' Touchez à nouveau pour tout réafficher.'
-                      : 'Touchez un compteur pour ne garder que ce statut sur la carte, un point pour ouvrir la fiche.') +
-          '</p>' +
-        '</div>' +
-
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Tournée suggérée</h3>' +
-            '<button class="cta sm ghost" data-tournee>' + ico(S.tournee ? 'x' : 'route') +
-              (S.tournee ? 'Masquer' : 'Sur la carte') + '</button></div>' +
-          '<div class="card">' +
-            (ordre.length
-              ? ordre.map((p,i) =>
-                  '<div class="cm-etape"><span class="cm-no">' + (i+1) + '</span>' +
-                    '<span class="tx"><b>' + esc(p.nom) + '</b><span>' + esc(p.adresse) + ' · ' + p.distance + ' m</span></span>' +
-                    '<button class="cta sm ghost" data-p="' + p.id + '">Fiche</button></div>').join('')
-              : '<div class="cm-vide">Aucun prospect jamais démarché sur le secteur — tout est travaillé.</div>') +
-            (ordre.length ? '<div class="row between" style="margin-top:10px;border-top:1px solid var(--rule);padding-top:9px">' +
-              '<span class="eyebrow">Itinéraire piéton</span>' +
-              '<span class="mono" style="font-size:11.5px">≈ ' + F.nb(m) + ' m · ' + minutes + ' min</span></div>' : '') +
-          '</div>' +
-          '<div class="note info"><b>La zone est une priorité commerciale, pas un planning.</b> ' +
-            'Vous gardez vos horaires, votre parcours et votre organisation. Cet ordre n’est qu’un regroupement par proximité : ' +
-            'suivez-le, inversez-le ou ignorez-le.</div>' +
-        '</div>' +
-
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Volume du terrain</h3></div>' +
-          '<div class="grid3">' +
-            '<div class="card tight stat"><b>' + D.COMMERCIAL.ciblesZone + '</b><span>cibles sur le secteur</span></div>' +
-            '<div class="card tight stat"><b>29 700</b><span>cibles en France</span></div>' +
-            '<div class="card tight stat"><b>1/2 300</b><span>habitants</span></div>' +
-          '</div>' +
-          '<div class="note"><b>Repère corrigé en v1.7.</b> Le ratio « 1 pour 400 habitants » des versions précédentes comptait ' +
-            '<i>tous</i> les restaurants. La cible réelle — indépendant <i>et</i> prenant des commandes par téléphone — ' +
-            'est d’environ 29 700 établissements en France, soit 1 pour 2 300 habitants. ' +
-            'La zone pilote Lyon 7e–8e, Villeurbanne, Vénissieux en représente 230 à 280.</div>' +
-        '</div>';
+    var LBL = { visite:"Marquer une visite", rappel:"Planifier un rappel",
+                essai:"Passer en essai gratuit", stop:"Ne plus contacter" };
+    var secs = "", i;
+    for (i = 0; i < actions.length; i++){
+      if (i % 2 === 0) secs += '<div class="secrow">';
+      secs += '<button class="sec" data-a="' + actions[i] + '">' + esc(LBL[actions[i]]) + '</button>';
+      if (i % 2 === 1 || i === actions.length - 1) secs += '</div>';
     }
 
-    function brancherSecteur(c){
-      /* filtre : on ne repeint pas, on estompe. */
-      on(c, '[data-st]', 'click', (ev, b) => {
-        const st = b.dataset.st;
-        S.filtre = (S.filtre === st) ? null : st;
-        api.vibrer();
-        c.querySelectorAll('[data-st]').forEach(x => x.setAttribute('aria-pressed', String(S.filtre === x.dataset.st)));
-        c.querySelectorAll('.cm-pt').forEach(g => {
-          const p = trouver(g.dataset.p);
-          g.classList.toggle('is-off', !!S.filtre && S.filtre !== p.statut);
-        });
-        const txt = c.querySelector('.sec p.muted');
-        if (txt) txt.innerHTML = S.filtre
-          ? 'Filtre : <b style="color:' + COUL[S.filtre] + '">' + esc(D.STATUTS[S.filtre].nom) + '</b> — ' + esc(D.STATUTS[S.filtre].def) + ' Touchez à nouveau pour tout réafficher.'
-          : 'Touchez un compteur pour ne garder que ce statut sur la carte, un point pour ouvrir la fiche.';
-      });
-      on(c, '[data-tournee]', 'click', (ev, b) => {
-        S.tournee = !S.tournee;
-        api.vibrer();
-        const g = c.querySelector('#cm-route');
-        if (g) g.innerHTML = svgRoute();
-        b.innerHTML = ico(S.tournee ? 'x' : 'route') + (S.tournee ? 'Masquer' : 'Sur la carte');
-        api.toast(S.tournee ? 'Itinéraire affiché — libre à vous de le suivre ou non.' : 'Itinéraire masqué.');
-      });
+    var meta = metarow("cible", "Statut", s.nom) +
+      metarow("pin", "Distance", dist(p.dist) + " · " + marche(p.dist)) +
+      (p.statut === "reserve" ? metarow("horloge", "Réservation restante", restant(p.restant)) : "") +
+      (p.derniere ? metarow("agenda", "Dernière action", p.derniere) : "") +
+      (p.preuve ? metarow("check", "Preuve retenue", p.preuve) : "") +
+      (p.objection ? metarow("chat", "Objection notée", p.objection) : "") +
+      (p.statut === "client" ? metarow("euro", "Commission", RIA.eur(D.commission) + " par mois, tant qu’il reste abonné") : "");
+
+    var corps = RIA.sheet(p.nom,
+      '<div class="lead-head"><span class="lead-av">' + esc(p.nom.charAt(0)) + '</span>' +
+        '<div class="lead-id"><div class="lead-nom">' + esc(p.nom) + '</div>' +
+        '<div class="lead-loc">' + svg(I.pin) + esc(p.type + " · " + p.adr) + '</div></div></div>' +
+      '<p class="lead-titre">' + esc(s.nom) + '</p>' +
+      '<div class="lead-desc">' + esc(s.def) + (p.info ? " " + esc(p.info) : "") + '</div>' +
+      '<div class="lead-meta">' + meta + '</div>' +
+      (cta || secs
+        ? '<div class="ctabar">' + (cta ? '<button class="cta" data-a="' + cta.a + '">' + esc(cta.l) + '</button>' : "") + secs + '</div>'
+        : "") +
+      (p.statut === "stop"
+        ? '<p class="note">Opposition explicite : aucun commercial ne reprend contact, ni en porte-à-porte, ni par téléphone, ni par message. Ce statut ne se lève pas depuis le terrain.</p>'
+        : '<p class="note">Une action est tracée par un appel depuis le numéro professionnel, un message depuis le canal Resto IA, ou une photo de devanture. Après action valide et suivi, le prospect est protégé <b>30 jours</b> depuis la dernière action.</p>')
+    );
+
+    var btns = corps.querySelectorAll("[data-a]");
+    for (i = 0; i < btns.length; i++){
+      btns[i].addEventListener("click", function(){ agir(p, this.dataset.a); });
     }
+  }
 
-    /* ======================== vue 2 — Prospects ======================== */
-    function lignes(){
-      const q = S.q.trim().toLowerCase();
-      const l = S.prospects.filter(p =>
-        (S.fstat === 'tous' || p.statut === S.fstat) &&
-        (!q || (p.nom + ' ' + p.adresse + ' ' + p.type).toLowerCase().includes(q)));
-      if (!l.length) return '<div class="cm-vide">Aucun prospect ne correspond.</div>';
-      return l.sort((a,b) => a.distance - b.distance).map(p =>
-        '<button class="listrow cm-prow" data-p="' + p.id + '">' +
-          '<span class="cm-pastille" style="--c:' + COUL[p.statut] + '"></span>' +
-          '<span class="tx"><b>' + esc(p.nom) + '</b><span>' + esc(p.adresse) + ' · ' + p.distance + ' m</span></span>' +
-          (p.statut === 'reserve' && p.expire
-            ? '<span class="cm-cd mono" data-cd="' + p.id + '">' + resteTxt(p.expire - Date.now()) + '</span>'
-            : '<span class="chip ' + D.STATUTS[p.statut].ton + '">' + esc(COURT[p.statut]) + '</span>') +
-          ico('chev','chev') +
-        '</button>').join('');
+  function agir(p, a){
+    if (a === "prendre") return prendre(p);
+    if (a === "rendre") return rendre(p);
+    if (a === "visite") return feuilleVisite(p);
+    if (a === "rappel") return rappel(p);
+    if (a === "essai") return essai(p);
+    if (a === "stop") return opposition(p);
+  }
+
+  function prendre(p){
+    if (p.bloque){
+      RIA.toast("Vous l’avez laissé expirer : blocage de 2 mois pour vous. Un autre commercial peut le prendre tout de suite.");
+      return;
     }
+    p.statut = "reserve"; p.restant = RESA;
+    p.info = "Réservé jusqu’au " + dansNJours(3);
+    RIA.closeSheet();
+    RIA.toast("Réservé 3 jours. Sans action il retourne au commun : vous ne pourrez plus le reprendre pendant 2 mois, un autre commercial le pourra immédiatement.");
+    refresh();
+  }
 
-    function vueProspects(){
-      const segs = ['tous'].concat(ORDRE).map(st =>
-        '<button data-f="' + st + '" aria-pressed="' + (S.fstat === st) + '">' +
-          (st === 'tous' ? 'Tous ' + S.prospects.length : esc(COURT[st]) + ' ' + nb(st)) + '</button>').join('');
-      return '<div class="sec">' +
-          '<label class="cm-search">' + ico('search') +
-            '<input id="cm-q" type="search" placeholder="Rechercher un prospect…" value="' + esc(S.q) + '" autocomplete="off">' +
-          '</label>' +
-          '<div class="seg">' + segs + '</div>' +
-          '<div class="list stagger" id="cm-liste">' + lignes() + '</div>' +
-        '</div>' +
-        '<div class="note info">Vous ne voyez que vos zones et vos prospects autorisés. Le fondateur voit la France entière ; ' +
-          'personne ne voit votre position en dehors d’une preuve de visite ponctuelle.</div>';
+  function rendre(p){
+    p.statut = "jamais"; p.restant = 0; p.bloque = true;
+    p.info = "Rendu au commun sans action";
+    RIA.closeSheet();
+    RIA.toast("Rendu au commun. Blocage de 2 mois pour vous ; disponible tout de suite pour un autre commercial.");
+    refresh();
+  }
+
+  function feuilleVisite(p){
+    var rows = "", i;
+    for (i = 0; i < PREUVES.length; i++){
+      rows += '<button class="menurow" data-pr="' + PREUVES[i].id + '">' +
+        '<span class="ico">' + svg(I[PREUVES[i].ico]) + '</span>' +
+        '<span class="lbl">' + esc(PREUVES[i].nom) + '</span>' +
+        svg('<path d="m9 18 6-6-6-6"/>').replace("<svg ", '<svg class="chev" ') + '</button>';
     }
-
-    function brancherProspects(c){
-      on(c, '#cm-q', 'input', (ev, i) => {
-        S.q = i.value;
-        c.querySelector('#cm-liste').innerHTML = lignes();
-      });
-      on(c, '[data-f]', 'click', (ev, b) => {
-        S.fstat = b.dataset.f;
-        api.vibrer();
-        c.querySelectorAll('[data-f]').forEach(x => x.setAttribute('aria-pressed', String(S.fstat === x.dataset.f)));
-        c.querySelector('#cm-liste').innerHTML = lignes();
-      });
+    var det = "", j;
+    for (j = 0; j < PREUVES.length; j++){
+      det += '<div class="acctrow"><span>' + esc(PREUVES[j].nom) + '</span></div>' +
+             '<div class="acctrow"><span>' + esc(PREUVES[j].det) + '</span></div>';
     }
+    var corps = RIA.sheet("Preuve de visite — " + p.nom,
+      '<div class="lead-desc">Choisissez la preuve qui correspond à ce que vous venez de faire. Elle est horodatée et rattachée au prospect.</div>' +
+      '<div class="menu">' + rows + '</div>' +
+      '<details class="calcdetail"><summary>Ce que chaque preuve enregistre' + svg(I.chevron) + '</summary>' +
+        '<div class="calcbody">' + det + '</div></details>' +
+      '<p class="note"><b>L’audio ne sert pas de preuve de prospection.</b> La géolocalisation est ponctuelle, au moment de la preuve : aucun suivi GPS continu, aucun itinéraire imposé, aucune sanction.</p>' +
+      '<div class="ctabar"><div class="secrow"><button class="sec" data-annule="1">Annuler</button></div></div>');
 
-    /* ---------------------- fiche prospect (feuille) ---------------------- */
-    function fiche(p){
-      const st = D.STATUTS[p.statut];
-      const froid = p.cooldown && Date.now() < p.cooldown;
-      const meta = [];
-      if (p.statut === 'reserve' && p.expire) meta.push(['Réservation', '<span data-cd="' + p.id + '">' + resteTxt(p.expire - Date.now()) + '</span>']);
-      meta.push(['Dernière action', esc(p.derniere || 'aucune action enregistrée')]);
-      meta.push(['Preuve de visite', esc(p.preuve || '—')]);
-      meta.push(['Objection notée', p.objection ? esc(p.objection) : '—']);
-      if (p.rappel)   meta.push(['Rappel programmé', esc(p.rappel)]);
-      if (p.relance)  meta.push(['Relance prévue', esc(p.relance)]);
-      if (p.retour)   meta.push(['Date de retour', esc(p.retour)]);
-      if (p.reste)    meta.push(['Essai', esc(p.reste)]);
-      if (p.depuis)   meta.push(['Client depuis', esc(p.depuis)]);
-      if (p.ca)       meta.push(['Abonnement', F.euro(p.ca) + ' / mois']);
-
-      const dispoPrendre = ['jamais','sansrep','refus'].includes(p.statut) && !froid;
-
-      return '<div class="cm-fiche-h">' +
-          '<span class="chip ' + st.ton + '"><i class="dot"></i>' + esc(st.nom) + '</span>' +
-          '<span class="chip">' + esc(p.type) + '</span>' +
-          '<span class="chip">' + p.distance + ' m</span>' +
-        '</div>' +
-        '<p class="muted" style="font-size:12px">' + esc(p.adresse) + ' · ' + esc(st.def) + '</p>' +
-        (froid ? '<div class="note warn">Vous avez laissé cette réservation expirer. Vous pourrez la reprendre à partir du ' +
-          esc(dateCourte(p.cooldown)) + ' ; un autre commercial peut la prendre dès maintenant.</div>' : '') +
-        '<div class="card cm-meta">' + meta.map(m => '<div><span>' + m[0] + '</span><b>' + m[1] + '</b></div>').join('') + '</div>' +
-
-        '<div class="cm-acts">' +
-          '<button class="cta" data-act="prendre"' + (dispoPrendre ? '' : ' disabled') + '>' + ico('hand') + 'Je prends ce prospect</button>' +
-          '<button class="cta ghost" data-act="visite">' + ico('camera') + 'Marquer une visite</button>' +
-          '<div class="grid2">' +
-            '<button class="cta ghost sm" style="width:100%" data-act="rappel">' + ico('clock') + 'Rappel</button>' +
-            '<button class="cta ok sm" style="width:100%" data-act="essai"' + (['client','stop'].includes(p.statut) ? ' disabled' : '') + '>' + ico('sparkle') + 'Essai gratuit</button>' +
-          '</div>' +
-          '<button class="cta danger" data-act="stop"' + (p.statut === 'stop' ? ' disabled' : '') + '>' + ico('x') + 'Ne plus contacter</button>' +
-        '</div>' +
-
-        '<div class="cm-preuves" id="cm-preuves">' +
-          '<div class="eyebrow">Preuve de visite — trois formes admises</div>' +
-          PREUVES.map(pr =>
-            '<button class="listrow" data-preuve="' + pr.id + '">' +
-              '<span class="ic">' + ico(pr.ic) + '</span>' +
-              '<span class="tx"><b>' + esc(pr.nom) + '</b><span>' + esc(pr.det) + '</span></span>' +
-              ico('chev','chev') + '</button>').join('') +
-          '<div class="cm-shot"><div class="cm-vue" id="cm-vue">' +
-            '<svg viewBox="0 0 260 74" fill="none" stroke="currentColor" stroke-width="1.4">' +
-              '<path d="M18 62h224M30 62V26h64v36M110 62V20h56v42M182 62V32h50v30"/>' +
-              '<path d="M42 40h18M126 34h24M196 44h22"/><path d="M24 26h76l-6-10H30z"/>' +
-            '</svg></div><div class="cm-flash" id="cm-flash"></div></div>' +
-          '<div class="note warn">L’audio ne sert jamais de preuve de prospection. La géolocalisation est ponctuelle, ' +
-            'au moment de la preuve uniquement — aucun suivi continu.</div>' +
-        '</div>';
-    }
-
-    function ouvrirFiche(id){
-      const p = trouver(id);
-      if (!p) return;
-      api.vibrer();
-      api.sheet(p.nom, fiche(p), body => brancherFiche(body, p));
-    }
-
-    function brancherFiche(body, p){
-      const rafraichir = () => { majBadge(); peindre(); api.sheet(p.nom, fiche(p), b => brancherFiche(b, p)); };
-
-      on(body, '[data-act]', 'click', (ev, b) => {
-        const a = b.dataset.act;
-        api.vibrer();
-
-        if (a === 'prendre'){
-          p.statut = 'reserve';
-          p.expire = Date.now() + RESERVATION;
-          p.cooldown = null;
-          api.toast('Réservé 3 jours. Sans action il retourne au commun : vous ne pourrez plus le reprendre pendant 2 mois, un autre commercial le pourra immédiatement.', 4600);
-          rafraichir();
-
-        } else if (a === 'visite'){
-          const zone = body.querySelector('#cm-preuves');
-          zone.classList.toggle('is-on');
-          if (zone.classList.contains('is-on')) apres(() => zone.scrollIntoView({ behavior: reduit() ? 'auto' : 'smooth', block:'nearest' }), 90);
-
-        } else if (a === 'rappel'){
-          const d = new Date(Date.now() + JOUR_MS);
-          p.statut = 'attente';
-          p.rappel = d.toLocaleDateString('fr-FR',{ weekday:'long' }) + ' 10h';
-          p.derniere = "aujourd’hui · rappel programmé";
-          api.toast('Rappel programmé ' + p.rappel + '. Le prospect passe en attente et reste protégé 30 jours depuis la dernière action.', 4200);
-          rafraichir();
-
-        } else if (a === 'essai'){
-          p.statut = 'essai';
-          p.reste = 'essai j1/14';
-          p.derniere = "aujourd’hui · essai gratuit lancé";
-          api.toast("Essai gratuit lancé. La commission de 7,50 € par mois ne court qu’à partir du premier mois payant.", 4200);
-          api.notif({ titre:'Essai gratuit — ' + p.nom, texte:'14 jours, sans engagement. Le gérant garde son numéro.',
-                      couleur:'#7fa8d8', glyph:'sparkle' });
-          rafraichir();
-
-        } else if (a === 'stop'){
-          if (b.dataset.sur !== '1'){
-            b.dataset.sur = '1';
-            b.innerHTML = ico('x') + 'Confirmer l’opposition définitive';
-            apres(() => { if (b.isConnected && b.dataset.sur === '1'){ b.dataset.sur = ''; b.innerHTML = ico('x') + 'Ne plus contacter'; } }, 4000);
-            return;
-          }
-          p.statut = 'stop';
-          p.expire = null;
-          p.derniere = "aujourd’hui · opposition enregistrée";
-          api.toast('Opposition enregistrée. Ce restaurant ne sera plus contacté par personne, jamais.', 4200);
-          rafraichir();
+    var b = corps.querySelectorAll("[data-pr]"), i2;
+    for (i2 = 0; i2 < b.length; i2++){
+      b[i2].addEventListener("click", function(){
+        var pr = null, k;
+        for (k = 0; k < PREUVES.length; k++) if (PREUVES[k].id === this.dataset.pr) pr = PREUVES[k];
+        p.preuve = pr.id === "photo" ? "photo de devanture" : pr.id === "appel" ? "appel professionnel" : "message Resto IA";
+        p.derniere = dansNJours(0) + " — visite tracée";
+        if (p.statut === "jamais" || p.statut === "reserve"){
+          p.statut = "sansrep";
+          p.restant = 0;
+          p.info = "Tentative réalisée — relance planifiable";
         }
-      });
-
-      /* Les trois preuves de visite. */
-      on(body, '[data-preuve]', 'click', (ev, b) => {
-        const pr = PREUVES.find(x => x.id === b.dataset.preuve);
-        api.vibrer();
-        const enregistrer = () => {
-          p.preuve = pr.id === 'photo' ? 'photo devanture' : (pr.id === 'appel' ? 'appel professionnel' : 'message Resto IA');
-          p.derniere = "aujourd’hui · " + (pr.id === 'photo' ? 'porte-à-porte' : pr.id === 'appel' ? 'appel sortant' : 'message');
-          if (p.statut === 'jamais') p.statut = 'sansrep';
-          api.toast('Visite tracée par ' + (pr.id === 'photo' ? 'photo de devanture' : pr.id === 'appel' ? 'appel professionnel' : 'message Resto IA') +
-            '. Protection de 30 jours depuis cette action.', 4200);
-          rafraichir();
-        };
-        if (pr.id === 'photo'){
-          const flash = body.querySelector('#cm-flash');
-          const vue = body.querySelector('#cm-vue');
-          if (flash && !reduit()){
-            flash.classList.remove('is-on'); void flash.offsetWidth; flash.classList.add('is-on');
-            if (vue) vue.style.transition = 'transform .5s var(--ease)', vue.style.transform = 'scale(1.06)';
-            apres(() => { if (vue) vue.style.transform = 'none'; }, 520);
-            apres(enregistrer, 620);
-          } else enregistrer();
-        } else enregistrer();
+        RIA.closeSheet();
+        RIA.toast("Visite tracée (" + p.preuve + "). Protection de 30 jours depuis cette action.");
+        refresh();
       });
     }
+    corps.querySelector("[data-annule]").addEventListener("click", function(){ fiche(p); });
+  }
 
-    /* ======================= vue 3 — Argumentaire ======================= */
-    function vueArgu(){
-      return '<div class="sec">' +
-          '<div class="sec-head"><h3>Pitch de porte — 20 secondes</h3>' +
-            '<span class="chip acc mono" id="cm-tmr">0:20</span></div>' +
-          '<div class="card" style="display:grid;gap:10px">' +
-            '<div class="cm-chrono"><i id="cm-chrono"></i></div>' +
-            PITCH.map((s,i) => '<p class="cm-seg-p" data-seg="' + i + '">' + esc(s.txt) + '</p>').join('') +
-            '<button class="cta" data-pitch>' + ico('play') + 'Lancer le minuteur' + '</button>' +
-          '</div>' +
-          '<p class="muted" style="font-size:11px">Un gérant en service écoute vingt secondes. Le minuteur défile pendant que vous lisez : ' +
-            'si vous n’avez pas fini, c’est trop long.</p>' +
-        '</div>' +
+  function rappel(p){
+    p.statut = "attente";
+    p.derniere = dansNJours(0) + " — rappel programmé";
+    p.info = "Rappel programmé le " + dansNJours(2) + " à 10h00, hors service";
+    RIA.closeSheet();
+    RIA.toast("Rappel programmé le " + dansNJours(2) + " à 10h00 — hors rush, comme demandé par le gérant.");
+    refresh();
+  }
 
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Objections</h3><span class="eyebrow">' + D.COMMERCIAL.argumentaire.length + ' réponses</span></div>' +
-          '<div>' + D.COMMERCIAL.argumentaire.map((o,i) =>
-            '<div class="cm-acc" data-acc="' + i + '">' +
-              '<button>' + ico('chev','chev') + '<span style="flex:1">' + esc(o.q) + '</span></button>' +
-              '<div class="cm-acc-b"><p>' + esc(o.r) + '</p></div>' +
-            '</div>').join('') + '</div>' +
-        '</div>' +
+  function essai(p){
+    p.statut = "essai";
+    p.derniere = dansNJours(0) + " — essai lancé";
+    p.info = "Essai gratuit — jour 1 sur 14";
+    RIA.closeSheet();
+    RIA.toast("Essai gratuit lancé. La commission de " + RIA.eur(D.commission) + " par mois démarre au premier mois payant.");
+    refresh();
+  }
 
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Faire écouter la démo</h3>' +
-            '<button class="cta sm ghost" data-demo>' + ico('play') + 'Jouer' + '</button></div>' +
-          '<div class="card" style="display:grid;gap:10px">' +
-            '<div class="cm-wv" id="cm-wv">' + Array.from({length:23}, () => '<i></i>').join('') + '</div>' +
-            '<div class="cm-fil" id="cm-fil"><p class="muted" style="font-size:11.5px;text-align:center">' +
-              'Extrait d’un vrai appel : 4 répliques, 20 secondes. Tendez le téléphone au gérant.</p></div>' +
-          '</div>' +
-        '</div>' +
+  function opposition(p){
+    p.statut = "stop"; p.restant = 0;
+    p.derniere = dansNJours(0) + " — opposition enregistrée";
+    p.info = "Opposition explicite";
+    RIA.closeSheet();
+    RIA.toast("Ne plus contacter : opposition définitive, respectée par tous les commerciaux.");
+    refresh();
+  }
 
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Les trois arguments qui tiennent</h3></div>' +
-          '<div class="list stagger">' +
-            '<div class="listrow"><span class="ic" style="color:var(--info)">' + ico('phone') + '</span>' +
-              '<span class="tx"><b>Le restaurant garde son numéro</b><span>Renvoi conditionnel sur non-réponse chez l’opérateur, réversible en deux minutes.</span></span></div>' +
-            '<div class="listrow"><span class="ic" style="color:var(--ok)">' + ico('check') + '</span>' +
-              '<span class="tx"><b>Rien ne part en cuisine sans confirmation</b><span>Le client valide par SMS ou à l’oral ; sinon la commande expire.</span></span></div>' +
-            '<div class="listrow"><span class="ic" style="color:var(--accent)">' + ico('euro') + '</span>' +
-              '<span class="tx"><b>Resto IA n’encaisse jamais les commandes</b><span>Aucune carte stockée, aucun litige géré : on facture seulement l’abonnement.</span></span></div>' +
-          '</div>' +
-        '</div>';
+  /* =======================================================================
+     ONGLET 1 — SECTEUR
+     ======================================================================= */
+  function goSecteur(){
+    initEtat(); etat.onglet = "secteur";
+    RIA.clearTimers();
+    RIA.renderNavbar("secteur");
+
+    var i, cells = "";
+    for (i = 0; i < ORDRE.length; i++){
+      cells += '<div class="stat" data-st="' + ORDRE[i] + '"><div class="v">' + compte(ORDRE[i]) + '</div>' +
+               '<div class="l">' + esc(D.statuts[ORDRE[i]].nom) + '</div></div>';
     }
 
-    function brancherArgu(c){
-      let stopPitch = null, stopDemo = null;
-      nettoyerOnglet = () => { if (stopPitch) stopPitch(); if (stopDemo) stopDemo(); };
+    var vus = etat.p.slice(0);
+    vus.sort(function(a, b){ return a.dist - b.dist; });
+    if (etat.fs) vus = vus.filter(function(x){ return x.statut === etat.fs; });
+    else vus = vus.slice(0, 4);
 
-      /* --- minuteur du pitch --- */
-      on(c, '[data-pitch]', 'click', (ev, b) => {
-        const barre = c.querySelector('#cm-chrono'), tmr = c.querySelector('#cm-tmr');
-        const segs = Array.from(c.querySelectorAll('[data-seg]'));
-        const fini = () => {
-          if (stopPitch){ stopPitch(); stopPitch = null; }
-          b.innerHTML = ico('play') + 'Relancer le minuteur';
-          segs.forEach(s => s.classList.remove('is-on'));
-        };
-        if (stopPitch){ fini(); barre.style.width = '0'; tmr.textContent = '0:20'; return; }
-        api.vibrer();
-        b.innerHTML = ico('stop') + 'Arrêter';
-        const t0 = performance.now();
-        stopPitch = boucle(t => {
-          const s = Math.min(20, (t - t0) / 1000);
-          barre.style.width = (s/20*100).toFixed(1) + '%';
-          tmr.textContent = '0:' + pad(Math.max(0, Math.ceil(20 - s)));
-          const k = Math.min(PITCH.length - 1, Math.floor(s / 5));
-          segs.forEach((n,i) => n.classList.toggle('is-on', i === k));
-          if (s >= 20){
-            api.toast('Vingt secondes. Au-delà, le gérant retourne à sa friteuse.');
-            fini();
-            return false;
-          }
-        });
-      });
+    /* tournée suggérée : jamais démarchés, distance croissante */
+    var neufs = etat.p.filter(function(x){ return x.statut === "jamais"; });
+    neufs.sort(function(a, b){ return a.dist - b.dist; });
+    var steps = "", total = 0, prev = 0;
+    for (i = 0; i < neufs.length; i++){
+      var trajet = Math.max(1, Math.round(Math.abs(neufs[i].dist - prev) / 75));
+      total += trajet + 12; prev = neufs[i].dist;
+      steps += subStep(String(i + 1), neufs[i].nom + " — " + neufs[i].type,
+        neufs[i].adr + " · " + dist(neufs[i].dist) + " · " + trajet + " min de marche puis 12 min de visite.");
+    }
+    if (!neufs.length) steps = subStep("—", "Aucun prospect jamais démarché",
+      "Tout ce qui est chargé dans cette zone a déjà été travaillé. Laissez une réservation expirer ou ouvrez une zone voisine.");
 
-      /* --- accordéon des objections --- */
-      on(c, '[data-acc] > button', 'click', (ev, b) => {
-        const box = b.parentElement;
-        const ouvert = box.classList.contains('is-on');
-        c.querySelectorAll('[data-acc]').forEach(x => x.classList.remove('is-on'));
-        if (!ouvert) box.classList.add('is-on');
-        api.vibrer(6);
-      });
+    RIA.setContent(
+      entete("Secteur du jour", D.commercial.zone,
+        "Priorité commerciale, pas un planning : vous gardez vos horaires et votre parcours.",
+        RIA.chip(D.commercial.cibles + " cibles", I.cible) +
+        RIA.chip(etat.p.length + " au CRM", I.doc) +
+        RIA.chip(D.commercial.nom, I.pas)) +
+      '<div class="stats">' + cells + '</div>' +
+      '<div class="mkt-summary">' + (etat.fs
+        ? 'Filtre <b>' + esc(D.statuts[etat.fs].nom) + '</b> — touchez à nouveau le compteur pour l’enlever.'
+        : 'Les <b>4 prospects les plus proches</b> de vous. Touchez un compteur ci-dessus pour filtrer.') + '</div>' +
+      '<div class="mkt-rows" id="cSecList">' + liste(vus) + '</div>' +
+      banniere('La zone est une <b>priorité commerciale</b>, pas un planning salarié. Le CRM attribue les prospects et les commissions ; il n’impose ni horaires, ni itinéraire, ni sanction.') +
+      '<div class="fsection">Tournée suggérée</div>' +
+      '<div class="sub-steps">' + steps +
+        subStep("↺", "Durée estimée : " + total + " min",
+          "Marche à 4,5 km/h et 12 minutes par visite. Ordre indicatif : vous restez libre de le suivre ou non.") + '</div>' +
+      RIA.note('Repère de marché corrigé (v1.7) : environ <b>29 700 cibles en France</b>, soit <b>une pour 2 300 habitants</b>. Le ratio « une pour 400 » des versions précédentes comptait tous les restaurants.')
+    );
 
-      /* --- démo sonore : transcription qui s’écrit + forme d’onde --- */
-      on(c, '[data-demo]', 'click', (ev, b) => {
-        const fil = c.querySelector('#cm-fil'), barres = Array.from(c.querySelectorAll('#cm-wv i'));
-        const calme = () => barres.forEach(i => i.style.height = '3px');
-        if (stopDemo){ stopDemo(); stopDemo = null; b.innerHTML = ico('play') + 'Jouer'; calme(); return; }
-        api.vibrer();
-        b.innerHTML = ico('stop') + 'Arrêter';
-        fil.innerHTML = '';
-        let k = 0, n = 0, t0 = performance.now(), bulle = null, parle = true;
-
-        const stopOnde = boucle(t => {
-          barres.forEach((i,x) => {
-            const h = parle ? 4 + Math.abs(Math.sin(t/190 + x*0.55)) * (7 + (x % 5) * 4) * (0.6 + Math.random()*0.5) : 3;
-            i.style.height = h.toFixed(0) + 'px';
-          });
-        });
-        const ecrire = boucle(t => {
-          if (k >= DEMO.length){
-            b.innerHTML = ico('play') + 'Rejouer';
-            api.toast('C’est exactement ce que le client entend. Aucun enregistrement n’est gardé au-delà de 30 jours.');
-            parle = false; calme(); stopOnde();
-            stopDemo = null;
-            return false;
-          }
-          const rep = DEMO[k];
-          if (!bulle){
-            bulle = el('<p class="cm-bulle ' + rep.qui + '"></p>');
-            fil.appendChild(bulle);
-            t0 = t; n = 0;
-          }
-          const cible = reduit() ? rep.txt.length : Math.floor((t - t0) / 24);
-          if (cible > n){ n = Math.min(rep.txt.length, cible); bulle.textContent = rep.txt.slice(0, n); }
-          if (n >= rep.txt.length && t - t0 > rep.txt.length * 24 + 420){ k++; bulle = null; }
-        });
-        stopDemo = () => { ecrire(); stopOnde(); parle = false; calme(); };
+    var st = $("content").querySelectorAll("[data-st]");
+    for (i = 0; i < st.length; i++){
+      st[i].addEventListener("click", function(){
+        etat.fs = (etat.fs === this.dataset.st) ? "" : this.dataset.st;
+        goSecteur();
       });
     }
+    brancherCartes($("cSecList"));
 
-    /* ========================== vue 4 — Gains ========================== */
-    function vueGains(){
-      const actifs = clientsActifs();
-      const total = actifs * D.COMMISSION;
-      const maxMois = Math.max.apply(null, D.COMMERCIAL.moisGains.map(m => m.montant).concat([total]));
-      const maxEnt = Math.max.apply(null, D.COMMERCIAL.entonnoir.map(e => e.n));
-      const tonVar = { '':'var(--ink-2)', info:'var(--info)', warn:'var(--warn)', acc:'var(--accent)', ok:'var(--ok)', bad:'var(--bad)' };
+    RIA.actionbar(
+      '<button class="cta" id="cVersProspects">' + svg(I.doc) + 'Ouvrir la liste des prospects</button>' +
+      '<div class="secrow"><button class="sec" id="cTournee">Détail de la tournée</button>' +
+      '<button class="sec" id="cMarche">Repère de marché</button></div>');
+    $("cVersProspects").addEventListener("click", function(){ RIA.clearTimers(); goProspects(); });
+    $("cTournee").addEventListener("click", function(){ feuilleTournee(neufs, total); });
+    $("cMarche").addEventListener("click", feuilleMarche);
 
-      const mois = D.COMMERCIAL.moisGains.map((m,i) => {
-        const v = (i === D.COMMERCIAL.moisGains.length - 1) ? total : m.montant;
-        return '<div class="c' + (i === D.COMMERCIAL.moisGains.length - 1 ? ' on' : '') + '">' +
-          '<i data-h="' + Math.max(4, v / maxMois * 76).toFixed(0) + 'px"></i>' +
-          '<small>' + esc(m.mois.slice(0,4)) + '</small>' +
-          '<small style="color:var(--ink-2)">' + F.euro(v) + '</small></div>';
-      }).join('');
+    RIA.every(tick, 1000);
+  }
 
-      const entonnoir = D.COMMERCIAL.entonnoir.map(e =>
-        '<div><div class="l"><span>' + esc(e.etape) + '</span><b>' + e.n + '</b></div>' +
-          '<div class="bar"><i data-w="' + (e.n / maxEnt * 100).toFixed(1) + '%" style="--c:' + tonVar[e.ton] + '"></i></div></div>').join('');
-
-      return '<div class="sec">' +
-          '<div class="card" style="display:grid;gap:9px">' +
-            '<div class="row between"><span class="eyebrow">Commission</span><span class="chip ok">récurrente</span></div>' +
-            '<div class="row" style="align-items:baseline;gap:7px">' +
-              '<b class="serif" style="font-size:30px">' + F.euro(D.COMMISSION) + '</b>' +
-              '<span class="muted" style="font-size:12px">par mois et par client actif</span></div>' +
-            '<p class="muted" style="font-size:11.5px">Versée tant que le client reste abonné. Aucun quota, aucun plafond, ' +
-              'aucune éviction, aucune confiscation de portefeuille. Les frais de déplacement restent à votre charge.</p>' +
-          '</div>' +
-          '<div class="grid2">' +
-            '<div class="card tight stat"><b id="cm-total">0 €</b><span>ce mois-ci</span></div>' +
-            '<div class="card tight stat"><b id="cm-actifs">0</b><span>clients actifs facturés</span></div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Quatre derniers mois</h3><span class="eyebrow">cumul non plafonné</span></div>' +
-          '<div class="card"><div class="cm-mb">' + mois + '</div></div>' +
-        '</div>' +
-
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Entonnoir de la zone</h3><span class="eyebrow">' + esc(D.COMMERCIAL.zone) + '</span></div>' +
-          '<div class="card cm-fn">' + entonnoir + '</div>' +
-        '</div>' +
-
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Projecteur</h3><span class="chip info mono" id="cm-pn">' + actifs + ' clients</span></div>' +
-          '<div class="card" style="display:grid;gap:11px">' +
-            '<input class="cm-range" id="cm-slider" type="range" min="0" max="300" step="1" value="' + actifs + '" aria-label="Nombre de clients actifs">' +
-            '<div class="cm-proj">' +
-              '<div><b id="cm-pm">—</b><span>par mois</span></div>' +
-              '<div><b id="cm-pa">—</b><span>par an</span></div>' +
-            '</div>' +
-            '<div class="note warn"><b>Hypothèse à valider, pas une promesse.</b> Le business plan retient 1 500 à 1 800 visites ' +
-              'terrain par an (220 jours × 6 à 10 visites) et suppose une conversion de 10 à 15 %, soit 150 à 270 clients par an ' +
-              'après montée en compétence. Ce chiffre n’a encore été mesuré nulle part.</div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="sec">' +
-          '<div class="sec-head"><h3>Règles du mandat</h3></div>' +
-          '<div class="list stagger">' + D.COMMERCIAL.regles.map(r =>
-            '<div class="card tight"><b style="font-size:12.5px">' + esc(r.titre) + '</b>' +
-              '<p class="muted" style="font-size:11.5px;margin-top:4px">' + esc(r.txt) + '</p></div>').join('') + '</div>' +
-          '<div class="note bad"><b>Fin de mandat.</b> Résiliable avec préavis dans les deux sens. La commission est maintenue ' +
-            'jusqu’à la fin du cycle d’engagement de 6 mois en cours, puis s’arrête définitivement pour ces clients. ' +
-            'Cette distinction entre mission de prospection et commissions acquises doit être validée juridiquement ' +
-            'avant tout recrutement.</div>' +
-        '</div>';
+  function feuilleTournee(neufs, total){
+    var rows = "", i;
+    for (i = 0; i < neufs.length; i++){
+      rows += '<div class="jcard" data-id="' + neufs[i].id + '"><div class="jcard-info">' +
+        '<div class="jcard-who">' + esc(neufs[i].nom) + '</div><div class="jcard-meta">' +
+        RIA.pill("Jamais démarché", "") + '<span class="jcard-date">' + esc(neufs[i].adr) + '</span></div></div>' +
+        '<div class="jcard-amt">' + esc(dist(neufs[i].dist)) + '</div></div>';
     }
+    var corps = RIA.sheet("Tournée suggérée",
+      '<div class="lead-desc">' + neufs.length + ' arrêt(s) jamais démarché(s), triés par distance croissante depuis votre position. ' +
+        'Environ ' + total + ' minutes marche comprise. Cet ordre est une suggestion : ni horaire imposé, ni itinéraire obligatoire.</div>' +
+      (neufs.length ? '<div class="jrows">' + rows + '</div>' : '<div class="empty">Rien à démarcher pour l’instant dans cette zone.</div>') +
+      '<p class="note">Repère du business plan : <b>6 à 10 visites par jour</b>, 220 jours par an, soit 1 500 à 1 800 visites terrain sur l’année pour un commercial à temps plein.</p>');
+    var c = corps.querySelectorAll(".jcard"), i2;
+    for (i2 = 0; i2 < c.length; i2++) c[i2].addEventListener("click", function(){ fiche(prospect(this.dataset.id)); });
+  }
 
-    function brancherGains(c){
-      const actifs = clientsActifs();
-      const total = actifs * D.COMMISSION;
-      compte(c.querySelector('#cm-total'), total, { duree:900, format:v => F.euro(v) });
-      compte(c.querySelector('#cm-actifs'), actifs, { duree:900 });
+  function feuilleMarche(){
+    RIA.sheet("Repère de marché",
+      '<div class="lead-desc">Le chiffre a été corrigé en v1.7. Ce qu’on vend n’est pas « tous les restaurants » : c’est l’indépendant qui prend encore des commandes par téléphone.</div>' +
+      '<div class="acctinfo">' +
+        '<div class="acctrow"><span>Tous restaurants (NACE 56.10)</span><span>176 929 · 1 / 387 hab</span></div>' +
+        '<div class="acctrow"><span>Restauration rapide stricte</span><span>≈ 50 000 · 1 / 1 370 hab</span></div>' +
+        '<div class="acctrow"><span>Cible commerciale réelle</span><span>≈ 29 700 · 1 / 2 300 hab</span></div>' +
+        '<div class="acctrow"><span>Coefficient de conversion</span><span>0,28 × 0,60 = 0,168</span></div>' +
+      '</div>' +
+      '<div class="fsection">Zone pilote</div>' +
+      '<div class="acctinfo">' +
+        '<div class="acctrow"><span>Lyon Est (7e, 8e, Villeurbanne, Vénissieux)</span><span>230 à 280 cibles</span></div>' +
+        '<div class="acctrow"><span>Population couverte</span><span>≈ 350 000 hab</span></div>' +
+        '<div class="acctrow"><span>Votre secteur</span><span>' + esc(D.commercial.zone) + ' · ' + D.commercial.cibles + ' cibles</span></div>' +
+      '</div>' +
+      '<p class="note">Une ville de 50 000 habitants ne contient pas 125 cibles mais <b>environ 22</b>. Le modèle « un commercial, une ville » ne tient qu’au-dessus de 500 000 habitants d’aire urbaine.</p>');
+  }
 
-      const remplir = () => {
-        c.querySelectorAll('.cm-mb i').forEach(i => i.style.height = i.dataset.h);
-        c.querySelectorAll('.cm-fn .bar i').forEach(i => i.style.width = i.dataset.w);
-      };
-      if (reduit()) remplir(); else requestAnimationFrame(() => apres(remplir, 60));
-
-      const maj = n => {
-        c.querySelector('#cm-pn').textContent = n + ' client' + (n > 1 ? 's' : '');
-        c.querySelector('#cm-pm').textContent = F.euro(n * D.COMMISSION);
-        c.querySelector('#cm-pa').textContent = F.euroCourt(n * D.COMMISSION * 12);
-      };
-      maj(actifs);
-      on(c, '#cm-slider', 'input', (ev, i) => maj(+i.value));
-      on(c, '#cm-slider', 'change', () => api.vibrer(6));
+  /* =======================================================================
+     ONGLET 2 — PROSPECTS
+     ======================================================================= */
+  function filtres(){
+    var h = '<button class="mkt-catchip' + (etat.filtre === "tous" ? " on" : "") + '" data-f="tous">Tous <span>' +
+            etat.p.length + '</span></button>', i;
+    for (i = 0; i < ORDRE.length; i++){
+      h += '<button class="mkt-catchip' + (etat.filtre === ORDRE[i] ? " on" : "") + '" data-f="' + ORDRE[i] + '">' +
+        esc(D.statuts[ORDRE[i]].nom) + ' <span>' + compte(ORDRE[i]) + '</span></button>';
     }
+    return h;
+  }
 
-    /* ========================== rendu général ========================== */
-    const VUES = { secteur:vueSecteur, prospects:vueProspects, argumentaire:vueArgu, gains:vueGains };
-    const BRANCHER = { secteur:brancherSecteur, prospects:brancherProspects, argumentaire:brancherArgu, gains:brancherGains };
+  function retenus(){
+    var q = RIA.norm(etat.q);
+    return etat.p.filter(function(p){
+      if (etat.filtre !== "tous" && p.statut !== etat.filtre) return false;
+      if (!q) return true;
+      return RIA.norm(p.nom + " " + p.type + " " + p.adr + " " + D.statuts[p.statut].nom).indexOf(q) >= 0;
+    }).sort(function(a, b){ return a.dist - b.dist; });
+  }
 
-    const tabs = () => ([
-      { id:'secteur',      label:'Secteur',  icone:'map' },
-      { id:'prospects',    label:'Prospects',icone:'users', badge:aTraiter() },
-      { id:'argumentaire', label:'Argument', icone:'book' },
-      { id:'gains',        label:'Gains',    icone:'euro' }
-    ]);
+  function goProspects(){
+    initEtat(); etat.onglet = "prospects";
+    RIA.clearTimers();
+    RIA.renderNavbar("prospects");
 
-    win.innerHTML =
-      topbar({
-        titre:'Commercial', sous:D.COMMERCIAL.nom + ' · ' + D.COMMERCIAL.zone,
-        actions:'<span class="chip acc mono" data-att>' + aTraiter() + ' à traiter</span>'
-      }) +
-      '<main class="content"></main>' +
-      navbar(tabs(), S.onglet);
+    RIA.setContent(
+      entete("Portefeuille", "Prospects",
+        "Huit statuts, une seule source de vérité. Toute modification se voit tout de suite dans les compteurs.") +
+      '<div class="authfield"><label class="flabel">Recherche</label>' +
+        '<input class="field" id="cQ" placeholder="Nom, type, rue, statut…" value="' + esc(etat.q) + '"></div>' +
+      '<div class="mkt-catbar" id="cCat">' + filtres() + '</div>' +
+      '<div class="mkt-rows" id="cList">' + liste(retenus()) + '</div>' +
+      RIA.note('Le fondateur voit toute la France ; vous ne voyez que vos zones et vos prospects autorisés. Un client actif reste attribué à son apporteur selon la règle de commission.')
+    );
 
-    function peindre(){
-      if (nettoyerOnglet){ nettoyerOnglet(); nettoyerOnglet = null; }
-      const neuf = el('<main class="content"></main>');
-      neuf.innerHTML = VUES[S.onglet]();
-      win.querySelector('.content').replaceWith(neuf);
-      win.querySelector('.navbar').replaceWith(el(navbar(tabs(), S.onglet)));
-      BRANCHER[S.onglet](neuf);
-      majBadge();
-    }
+    brancherCartes($("cList"));
+    brancherFiltres();
 
-    /* délégation posée une fois sur la fenêtre : elle survit aux repeints */
-    on(win, '[data-tab]', 'click', (ev, b) => {
-      if (b.dataset.tab === S.onglet) return;
-      S.onglet = b.dataset.tab;
-      api.vibrer();
-      peindre();
-    });
-    on(win, '[data-p]', 'click', (ev, b) => ouvrirFiche(b.dataset.p));
-    on(win, '[data-p]', 'keydown', (ev, b) => {
-      if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ouvrirFiche(b.dataset.p); }
+    var q = $("cQ");
+    q.addEventListener("input", function(){
+      etat.q = this.value;
+      $("cList").innerHTML = liste(retenus());
+      brancherCartes($("cList"));
     });
 
-    /* ------------------- horloge des réservations ------------------- */
-    chaque(() => {
-      const now = Date.now();
-      let expire = null;
-      S.prospects.forEach(p => {
-        if (p.statut === 'reserve' && p.expire && now >= p.expire){
-          p.statut = 'jamais'; p.expire = null; p.cooldown = now + COOLDOWN;
-          expire = p;
-        }
+    RIA.actionbar(
+      '<button class="cta" id="cAPrendre">' + svg(I.cible) + 'À prendre : ' + compte("jamais") + ' prospect(s)</button>' +
+      '<div class="secrow"><button class="sec" id="cResa">Réservations en cours</button>' +
+      '<button class="sec" id="cTout">Tout afficher</button></div>');
+    $("cAPrendre").addEventListener("click", function(){ etat.filtre = "jamais"; etat.q = ""; goProspects(); });
+    $("cResa").addEventListener("click", function(){ etat.filtre = "reserve"; etat.q = ""; goProspects(); });
+    $("cTout").addEventListener("click", function(){ etat.filtre = "tous"; etat.q = ""; goProspects(); });
+
+    RIA.every(tick, 1000);
+  }
+
+  function brancherFiltres(){
+    var c = $("cCat").querySelectorAll(".mkt-catchip"), i;
+    for (i = 0; i < c.length; i++){
+      c[i].addEventListener("click", function(){
+        etat.filtre = this.dataset.f;
+        goProspects();
       });
-      if (expire){
-        api.notif({ titre:'Réservation expirée — ' + expire.nom,
-          texte:'Retour au commun. Vous pourrez le reprendre dans 2 mois ; un autre commercial, tout de suite.',
-          couleur:'#e9a33d', glyph:'clock', onClic:() => ouvrirFiche(expire.id) });
-        peindre();
+    }
+  }
+
+  /* =======================================================================
+     ONGLET 3 — ARGUMENTAIRE
+     ======================================================================= */
+  var PITCH = [
+    { t:5,  x:"Bonjour, je passe voir les restaurants du quartier. Quand vous êtes en plein rush, les appels que vous ne décrochez pas, ils partent ailleurs." },
+    { t:10, x:"On met un assistant vocal sur votre numéro actuel. Vous le gardez : on active juste le renvoi sur non-réponse, c’est deux minutes chez l’opérateur." },
+    { t:15, x:"Il prend la commande, envoie le récapitulatif par SMS, et rien ne part en cuisine tant que le client n’a pas confirmé." },
+    { t:20, x:"Essai gratuit pour mesurer votre vrai volume d’appels. Un seul tacos récupéré par jour paie déjà le forfait Basic à " }
+  ];
+
+  function pitchTexte(i){
+    return i === 3 ? PITCH[3].x + RIA.eur0(D.forfaits[1].prix) + " par mois. Je vous montre ?" : PITCH[i].x;
+  }
+  function segCourant(){
+    var i;
+    for (i = 0; i < PITCH.length; i++) if (etat.pitch < PITCH[i].t) return i;
+    return PITCH.length - 1;
+  }
+
+  function goArgu(){
+    initEtat(); etat.onglet = "argu";
+    RIA.clearTimers();
+    RIA.renderNavbar("argu");
+
+    var obj = "", i;
+    for (i = 0; i < D.commercial.objections.length; i++){
+      obj += '<details class="calcdetail"><summary>' + esc(D.commercial.objections[i].q) + svg(I.chevron) + '</summary>' +
+        '<div class="calcbody"><div class="acctrow"><span>' + esc(D.commercial.objections[i].r) + '</span></div></div></details>';
+    }
+
+    var steps = "";
+    for (i = 0; i < PITCH.length; i++){
+      steps += subStep(String(i + 1), "Seconde " + (i === 0 ? "0" : PITCH[i - 1].t) + " à " + PITCH[i].t, pitchTexte(i));
+    }
+
+    RIA.setContent(
+      entete("Terrain", "Argumentaire",
+        "Vingt secondes debout dans la salle, hors rush. Ni tract, ni tablette : une démo et trois garanties.") +
+      '<div class="lead-desc" id="cPitchTxt">' + esc(pitchTexte(segCourant())) + '</div>' +
+      '<div class="code-rows">' +
+        barre(RIA.chrono(etat.pitch), Math.round(etat.pitch / 20 * 100), "ok", "00:20") +
+      '</div>' +
+      '<div class="fsection">Le pitch, seconde par seconde</div>' +
+      '<div class="sub-steps">' + steps + '</div>' +
+      '<div class="fsection">Faire écouter</div>' +
+      '<div class="code-rows">' +
+        '<div class="factcard"><span class="fc-ico">' + svg(I.tel) + '</span>' +
+        '<span class="fc-info"><span class="fc-title">Démo d’appel</span>' +
+        '<span class="fc-sub">Quatre répliques réelles, à faire écouter au gérant.</span></span>' +
+        '<button class="fc-btn" id="cDemo">Lancer</button></div>' +
+      '</div>' +
+      '<div class="fsection">Objections du terrain</div>' +
+      '<div class="code-rows">' + obj + '</div>' +
+      '<div class="fsection">Les trois arguments qui tiennent</div>' +
+      '<div class="code-rows">' +
+        fact("tel", "Le restaurant garde son numéro", "Renvoi conditionnel, réversible en deux minutes.", "Détail", "renvoi") +
+        fact("check", "Rien ne part en cuisine sans confirmation", "Le client valide, sinon la commande expire.", "Détail", "confirmation") +
+        fact("euro", "Resto IA n’encaisse jamais les commandes", "Aucune carte stockée, aucun litige géré.", "Détail", "paiement") +
+      '</div>' +
+      RIA.note('Si le gérant demande un humain, s’énerve, évoque une allergie ou sort du menu, l’assistant transfère : c’est la réponse à l’objection « et si l’IA se trompe ? ».')
+    );
+
+    var reg = $("content").querySelectorAll("[data-regle]"), j;
+    for (j = 0; j < reg.length; j++){
+      reg[j].addEventListener("click", function(){ feuilleRegle(this.dataset.regle); });
+    }
+    $("cDemo").addEventListener("click", feuilleDemo);
+
+    RIA.actionbar(
+      '<button class="cta" id="cPitch">' + svg(I.eclair) + (etat.pitchOn ? "Arrêter le minuteur" : "Lancer le pitch — 20 s") + '</button>' +
+      '<div class="secrow"><button class="sec" id="cReset">Remettre à zéro</button>' +
+      '<button class="sec" id="cDemo2">Faire écouter la démo</button></div>');
+    $("cPitch").addEventListener("click", togglePitch);
+    $("cReset").addEventListener("click", function(){
+      etat.pitch = 0; etat.pitchOn = false; goArgu(); RIA.toast("Minuteur remis à zéro.");
+    });
+    $("cDemo2").addEventListener("click", feuilleDemo);
+
+    if (etat.pitchOn) lancerMinuteur();
+  }
+
+  function togglePitch(){
+    etat.pitchOn = !etat.pitchOn;
+    if (etat.pitchOn && etat.pitch >= 20) etat.pitch = 0;
+    goArgu();
+  }
+
+  function lancerMinuteur(){
+    RIA.every(function(){
+      if (!etat.pitchOn) return;
+      etat.pitch += 0.2;
+      if (etat.pitch >= 20){
+        etat.pitch = 20; etat.pitchOn = false;
+        majPitch();
+        RIA.toast("Vingt secondes. C’est tout ce que ça prend pour obtenir une démo.");
+        RIA.after(function(){ if (etat.onglet === "argu") goArgu(); }, 900);
         return;
       }
-      document.querySelectorAll('[data-cd]').forEach(n => {
-        const p = trouver(n.dataset.cd);
-        n.textContent = (p && p.expire) ? resteTxt(p.expire - now) : '—';
-      });
-    }, 1000);
-
-    peindre();
-
-    /* ---------------------------- nettoyage ---------------------------- */
-    return function demonter(){
-      if (nettoyerOnglet){ try { nettoyerOnglet(); } catch(e){} nettoyerOnglet = null; }
-      intervalles.forEach(clearInterval); intervalles.clear();
-      delais.forEach(clearTimeout);       delais.clear();
-      trames.forEach(cancelAnimationFrame); trames.clear();
-      api.fermerSheet();
-    };
+      majPitch();
+    }, 200);
   }
-};
+
+  function majPitch(){
+    var pct = Math.round(etat.pitch / 20 * 100);
+    var bar = $("content").querySelector(".charge-fill");
+    var lbls = $("content").querySelectorAll(".charge-lbl");
+    var txt = $("cPitchTxt");
+    if (bar) bar.style.width = pct + "%";
+    if (lbls.length) lbls[0].textContent = RIA.chrono(etat.pitch);
+    if (txt) txt.textContent = pitchTexte(segCourant());
+  }
+
+  function feuilleRegle(cle){
+    var titres = { renvoi:"Le restaurant garde son numéro", confirmation:"Confirmation obligatoire", paiement:"Aucun encaissement" };
+    RIA.sheet(titres[cle],
+      '<div class="lead-desc">' + esc(D.regles[cle]) + '</div>' +
+      '<div class="lead-meta">' +
+        metarow("check", "Ce que vous pouvez promettre", "Exactement la phrase ci-dessus, rien de plus.") +
+        metarow("alerte", "Ce que vous ne promettez pas", "Aucune garantie d’absence d’allergène, aucun chiffre de chiffre d’affaires.") +
+      '</div>' +
+      '<p class="note">' + esc(D.regles.rgpd) + '</p>');
+  }
+
+  function feuilleDemo(){
+    var idx = [0, 8, 9, 10];
+    var corps = RIA.sheet("Démo d’appel",
+      '<div class="lead-desc">Tendez le téléphone au gérant et laissez tourner. Quatre répliques : l’annonce d’assistant automatisé, le récapitulatif SMS, la confirmation du client, l’envoi en cuisine.</div>' +
+      '<div class="thread" id="cThread"><div class="row me"><button class="qchip primary" id="cPlay">Jouer les quatre répliques</button></div></div>' +
+      '<p class="note">' + esc(D.regles.confirmation) + '</p>');
+
+    corps.querySelector("#cPlay").addEventListener("click", function(){
+      var th = $("cThread");
+      th.innerHTML = "";
+      var i;
+      for (i = 0; i < idx.length; i++){
+        (function(k){
+          RIA.after(function(){
+            var t = D.appel[idx[k]];
+            var row = document.createElement("div");
+            row.className = "row " + (t.qui === "me" ? "me" : "bot");
+            row.innerHTML = '<div class="bub">' + esc(t.txt) + '</div>';
+            th.appendChild(row);
+            if (k === idx.length - 1){
+              var again = document.createElement("div");
+              again.className = "row me";
+              again.innerHTML = '<button class="qchip" id="cReplay">Rejouer</button>';
+              th.appendChild(again);
+              again.querySelector("#cReplay").addEventListener("click", function(){ feuilleDemo(); });
+            }
+          }, k * 2200);
+        })(i);
+      }
+    });
+  }
+
+  /* =======================================================================
+     ONGLET 4 — GAINS
+     ======================================================================= */
+  function goGains(){
+    initEtat(); etat.onglet = "gains";
+    RIA.clearTimers();
+    RIA.renderNavbar("gains");
+
+    var g = D.commercial.gains, i;
+    var actifs = Math.round(dernierGain() / D.commission);
+    var maxG = 0;
+    for (i = 0; i < g.length; i++) if (g[i].v > maxG) maxG = g[i].v;
+
+    var blocMois = '<div class="code-rows">';
+    for (i = 0; i < g.length; i++){
+      var pc = Math.round(g[i].v / maxG * 100);
+      blocMois += barre(g[i].m, pc, ton(pc), RIA.eur0(g[i].v));
+    }
+    blocMois += '</div>';
+
+    var e = D.commercial.entonnoir, maxE = e[0].n;
+    var blocEnt = '<div class="code-rows">';
+    for (i = 0; i < e.length; i++){
+      var pe = Math.round(e[i].n / maxE * 100);
+      blocEnt += barre(e[i].e, pe, e[i].e === "Ne plus contacter" ? "bas" : ton(pe), String(e[i].n));
+    }
+    blocEnt += '</div>';
+
+    var porte = etat.p.filter(function(x){ return x.statut === "client"; });
+    var rows = "";
+    for (i = 0; i < porte.length; i++){
+      rows += '<div class="jcard" data-id="' + porte[i].id + '"><div class="jcard-info">' +
+        '<div class="jcard-who">' + esc(porte[i].nom) + '</div><div class="jcard-meta">' +
+        RIA.pill("Client actif", "signe") + '<span class="jcard-date">' + esc(porte[i].info) + '</span></div></div>' +
+        '<div class="jcard-amt">' + esc(RIA.eur(D.commission)) + '</div></div>';
+    }
+    var blocPorte = porte.length
+      ? '<div class="jrows">' + rows + '</div>'
+      : '<div class="empty">Aucun client actif chargé dans cette zone de démonstration.</div>';
+
+    var bloc = etat.gtab === "mois" ? blocMois : etat.gtab === "entonnoir" ? blocEnt : blocPorte;
+
+    var regles = "";
+    for (i = 0; i < D.commercial.regles.length; i++){
+      regles += subStep(String(i + 1), D.commercial.regles[i].t, D.commercial.regles[i].x);
+    }
+
+    RIA.setContent(
+      entete("Rémunération", "Gains",
+        RIA.eur(D.commission) + " par mois et par client actif, tant qu’il reste abonné.") +
+      '<div class="pricecard"><div class="label">Commission de ' + esc(g[g.length - 1].m) + '</div>' +
+        '<div class="price">' + RIA.eur0(dernierGain()) + '<small> /mois</small></div>' +
+        '<div class="gain">' + svg(I.euro) + actifs + ' clients actifs × ' + RIA.eur(D.commission) + '</div></div>' +
+      '<div class="sub-money">' +
+        moneyRow("Par client actif", "Récurrent tant que le restaurant reste abonné.", RIA.eur(D.commission) + " / mois") +
+        moneyRow("Quota", "Aucun quota, aucun avertissement, aucune éviction.", "aucun") +
+        moneyRow("Plafond", "Les gains sont cumulés et non plafonnés.", "aucun") +
+        moneyRow("Frais de déplacement", "À la charge de l’apporteur d’affaires.", "à vous") +
+      '</div>' +
+      '<div class="journaltabs" id="cGTabs">' +
+        '<button class="jtab' + (etat.gtab === "mois" ? " on" : "") + '" data-g="mois">Mois <span class="jn">' + g.length + '</span></button>' +
+        '<button class="jtab' + (etat.gtab === "entonnoir" ? " on" : "") + '" data-g="entonnoir">Entonnoir <span class="jn">' + e.length + '</span></button>' +
+        '<button class="jtab' + (etat.gtab === "porte" ? " on" : "") + '" data-g="porte">Portefeuille <span class="jn">' + porte.length + '</span></button>' +
+      '</div>' + bloc +
+      '<div class="fsection">Projecteur</div>' +
+      '<div class="acctinfo">' +
+        '<div class="acctrow"><span>Clients actifs</span><input type="range" id="cRange" min="0" max="270" step="1" value="' + etat.clients + '"></div>' +
+        '<div class="acctrow"><span>Nombre retenu</span><span id="cN">' + etat.clients + '</span></div>' +
+        '<div class="acctrow"><span>Revenu mensuel</span><span id="cM">' + RIA.eur0(etat.clients * D.commission) + '</span></div>' +
+        '<div class="acctrow"><span>Revenu annuel</span><span id="cA">' + RIA.eur0(etat.clients * D.commission * 12) + '</span></div>' +
+      '</div>' +
+      banniere('Repère du business plan : <b>1 500 à 1 800 visites terrain par an</b> (220 jours × 6 à 10 visites), conversion supposée de <b>10 à 15 %</b>, soit 150 à 270 clients par an après montée en compétence. <b>Hypothèse à valider, pas une promesse.</b>') +
+      '<div class="fsection">Règles d’attribution</div>' +
+      '<div class="sub-steps">' + regles + '</div>' +
+      '<div class="fsection">Parrainage</div>' +
+      '<div class="code-rows">' +
+        '<div class="code-row"><div><div class="code-txt">NADIA-LYON7</div>' +
+          '<div class="code-sub">Votre code apporteur : il rattache le restaurant à votre portefeuille.</div></div>' +
+          '<button class="qchip" id="cCode">Copier</button></div>' +
+        '<div class="code-row"><div><div class="code-txt">PARRAIN-RIA</div>' +
+          '<div class="code-sub">Un autre apporteur s’inscrit avec ce code : vous suivez ses trois premiers clients.</div></div>' +
+          '<button class="qchip" id="cCode2">Copier</button></div>' +
+      '</div>' +
+      RIA.note('Le client passe d’un modèle sans engagement à un essai gratuit puis un <b>engagement de 6 mois</b>. Votre commission suit ce cycle.')
+    );
+
+    var tabs = $("cGTabs").querySelectorAll(".jtab");
+    for (i = 0; i < tabs.length; i++){
+      tabs[i].addEventListener("click", function(){ etat.gtab = this.dataset.g; goGains(); });
+    }
+    var jc = $("content").querySelectorAll(".jcard"), k;
+    for (k = 0; k < jc.length; k++) jc[k].addEventListener("click", function(){ fiche(prospect(this.dataset.id)); });
+
+    $("cRange").addEventListener("input", function(){
+      etat.clients = parseInt(this.value, 10) || 0;
+      $("cN").textContent = etat.clients;
+      $("cM").textContent = RIA.eur0(etat.clients * D.commission);
+      $("cA").textContent = RIA.eur0(etat.clients * D.commission * 12);
+    });
+    $("cCode").addEventListener("click", function(){ RIA.toast("Code NADIA-LYON7 copié — à donner au gérant à l’inscription."); });
+    $("cCode2").addEventListener("click", function(){ RIA.toast("Code PARRAIN-RIA copié."); });
+
+    RIA.actionbar(
+      '<button class="cta" id="cVersClients">' + svg(I.check) + 'Voir mes ' + porte.length + ' clients actifs</button>' +
+      '<div class="secrow"><button class="sec" id="cRegles">Règles d’attribution</button>' +
+      '<button class="sec" id="cMandat">Fin de mandat</button></div>');
+    $("cVersClients").addEventListener("click", function(){
+      RIA.clearTimers(); etat.filtre = "client"; etat.q = ""; goProspects();
+    });
+    $("cRegles").addEventListener("click", feuilleRegles);
+    $("cMandat").addEventListener("click", feuilleMandat);
+  }
+
+  function feuilleRegles(){
+    var h = "", i;
+    for (i = 0; i < D.commercial.regles.length; i++){
+      h += '<details class="calcdetail"><summary>' + esc(D.commercial.regles[i].t) + svg(I.chevron) + '</summary>' +
+        '<div class="calcbody"><div class="acctrow"><span>' + esc(D.commercial.regles[i].x) + '</span></div></div></details>';
+    }
+    RIA.sheet("Règles d’attribution",
+      '<div class="lead-desc">Le CRM attribue les prospects et les commissions. Il n’impose ni horaires, ni itinéraires, ni sanctions.</div>' +
+      '<div class="code-rows">' + h + '</div>' +
+      '<p class="note">Sans action après 3 jours, le prospect redevient « Jamais démarché ». Le même commercial ne peut pas le réserver pendant <b>2 mois</b> ; un autre le peut immédiatement.</p>');
+  }
+
+  function feuilleMandat(){
+    var r = D.commercial.regles[D.commercial.regles.length - 1];
+    RIA.sheet("Fin de mandat",
+      '<div class="lead-desc">' + esc(r.x) + '</div>' +
+      '<div class="lead-meta">' +
+        metarow("agenda", "Préavis", "Résiliable avec préavis dans les deux sens.") +
+        metarow("euro", "Commission", "Maintenue jusqu’à la fin du cycle d’engagement de 6 mois en cours, puis arrêtée définitivement pour ces clients.") +
+        metarow("alerte", "Statut du texte", "À valider juridiquement avant tout recrutement.") +
+      '</div>' +
+      '<p class="note">La distinction entre <b>mission de prospection</b> et <b>commissions acquises</b> n’est pas tranchée dans cette maquette : elle doit être écrite par un avocat avant le premier contrat signé.</p>');
+  }
+
+  /* =======================================================================
+     ENREGISTREMENT
+     ======================================================================= */
+  RIA.register({
+    id:"commercial", nom:"Commercial", badge:"3",
+    fond:"linear-gradient(150deg,#c3b2f0,#6f57c8)", encre:"#0d0720",
+    glyph:'<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    espace:"ESPACE COMMERCIAL",
+    titre:"Resto IA — terrain", sub:"Le porte-à-porte chez l’indépendant, le seul avantage défendable.",
+    cta:"Se connecter",
+    tabs:[
+      { id:"secteur",   lbl:"Secteur",      svg:I.pin,    go:goSecteur },
+      { id:"prospects", lbl:"Prospects",    svg:I.doc,    go:goProspects },
+      { id:"argu",      lbl:"Argumentaire", svg:I.chat,   go:goArgu },
+      { id:"gains",     lbl:"Gains",        svg:I.euro,   go:goGains }
+    ]
+  });
+
+})();

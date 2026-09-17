@@ -2,104 +2,60 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<title>Resto IA — prototype interactif</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Resto IA — maquette des trois applications</title>
-<meta name="description" content="Maquette interactive de Resto IA : l'application gérant, l'écran cuisine et l'application commercial, dans un téléphone.">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0A1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Resto IA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="src/theme.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230b0a08'/><path d='M10 8.5 8 10.6c-.6.6-.7 1.5-.4 2.2a16 16 0 0 0 9.4 9.4c.7.3 1.6.2 2.2-.4l2-2-3.3-2.2-1.6 1.2a12 12 0 0 1-5.2-5.2l1.3-1.6z' fill='none' stroke='%23ddb84a' stroke-width='1.6'/></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Petit+Formal+Script&display=swap">
+<link rel="stylesheet" href="src/theme.css?v=2">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230a1020'/><path d='M11 9 9 11c-.6.6-.7 1.5-.4 2.2a16 16 0 0 0 9.4 9.4c.7.3 1.6.2 2.2-.4l2-2-3.3-2.2-1.6 1.2a12 12 0 0 1-5.2-5.2l1.3-1.6z' fill='none' stroke='%237ea2ff' stroke-width='1.6'/></svg>">
 </head>
 <body>
 
-<div class="stage">
+<div class="caption"><span class="dot"></span> prototype interactif — écran d'accueil, ouverture d'appli, connexion, puis le reste</div>
 
-  <!-- ------------------------- panneau de gauche ------------------------- -->
-  <div class="pitch">
-    <span class="eyebrow">Resto IA — maquette v2</span>
-    <h1>L'IA qui décroche <em>quand la cuisine ne peut pas</em>.</h1>
-    <p>Trois applications, un seul produit : le gérant règle son menu et sa voix, la cuisine reçoit les commandes confirmées, le commercial travaille son secteur. Tout est cliquable — ouvrez une application sur le téléphone.</p>
-
-    <div class="pitch-apps">
-      <button class="pitch-app" data-lancer="gerant">
-        <span class="gl" style="background:linear-gradient(150deg,#f0ce72,#c79a2a);color:#241c05">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
-        </span>
-        <span><b>Application gérant</b><span>Menu, voix de l'assistant, horaires, rush, appels, abonnement</span></span>
-      </button>
-      <button class="pitch-app" data-lancer="cuisine">
-        <span class="gl" style="background:linear-gradient(150deg,#79d3a4,#2f9d68);color:#06180f">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/><path d="M12 7v10"/></svg>
-        </span>
-        <span><b>Écran cuisine</b><span>File des commandes, six statuts, tickets ESC/POS, rush</span></span>
-      </button>
-      <button class="pitch-app" data-lancer="commercial">
-        <span class="gl" style="background:linear-gradient(150deg,#8fb8e8,#3a6fb0);color:#07101c">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-        </span>
-        <span><b>Application commercial</b><span>Secteur, prospects, réservation, argumentaire, commissions</span></span>
-      </button>
-    </div>
-
-    <p class="pitch-foot">
-      Maquette statique — aucune donnée réelle, aucun paiement, aucun appel.
-      Données d'exemple tirées du business plan <code>v1.7</code>.
-      Les icônes grisées de l'écran d'accueil sont un décor.
-    </p>
-  </div>
-
-  <!-- ---------------------------- le téléphone ---------------------------- -->
-  <div class="device">
-    <div class="viewport">
-      <div class="notch"></div>
-
-      <div class="statusbar">
-        <span id="sb-heure">19:41</span>
-        <span class="right">
-          <span class="sig" aria-hidden="true"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></span>
-          <span class="mono">5G</span>
-          <span class="bat" aria-label="Batterie 72 %"><i></i></span>
+<div class="device">
+  <div class="notch"></div>
+  <div class="viewport" id="viewport">
+    <div class="home" id="home">
+      <div class="statusbar"><span class="time" data-clock></span>
+        <span class="icons">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 8.5c5-4 15-4 20 0M5 12c3.5-2.7 10.5-2.7 14 0M8.3 15.5c2-1.4 5.4-1.4 7.4 0"/><circle cx="12" cy="18.5" r="1" fill="#fff" stroke="none"/></svg>
+          <svg viewBox="0 0 24 24" fill="#fff" stroke="none"><rect x="2" y="7" width="18" height="10" rx="2.5" stroke="#fff" stroke-width="1.6" fill="none"/><rect x="4" y="9" width="12" height="6" rx="1"/><rect x="21" y="10" width="1.6" height="4" rx="0.8"/></svg>
         </span>
       </div>
-
-      <div class="screen" id="screen">
-
-        <!-- écran d'accueil -->
-        <div class="springboard" id="springboard">
-          <div class="widget">
-            <div class="widget-head">
-              <span class="eyebrow">Resto IA · ce soir</span>
-              <span class="widget-live"><span class="dot blink" style="color:var(--ok)"></span> en ligne</span>
-            </div>
-            <div class="widget-row">
-              <span class="w"><b>31</b><span>appels pris</span></span>
-              <span class="w"><b>24</b><span>commandes</span></span>
-              <span class="w"><b>412 €</b><span>CA récupéré</span></span>
-              <span class="w"><b>147</b><span>min / 300</span></span>
-            </div>
-          </div>
-
-          <div class="appgrid" id="appgrid"></div>
-          <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
-          <div class="dock" id="dock"></div>
-        </div>
-
-        <!-- couches système -->
-        <div class="notif" id="notif" role="status"></div>
-        <div class="toast" id="toast" role="status"></div>
-        <div class="sheet-back" id="sheet-back"></div>
-        <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
-
-        <!-- barre d'accueil -->
-        <button class="homebar" id="homebar" aria-label="Retour à l'écran d'accueil"><span class="homeind"></span></button>
-      </div>
+      <div class="iconsgrid" id="iconsgrid"></div>
+      <div class="dock" id="dock"></div>
     </div>
+    <div class="screen" id="appwrap">
+      <div class="statusbar"><span class="time" data-clock></span>
+        <span class="icons">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5c5-4 15-4 20 0M5 12c3.5-2.7 10.5-2.7 14 0M8.3 15.5c2-1.4 5.4-1.4 7.4 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor" stroke="none"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="2" y="7" width="18" height="10" rx="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/><rect x="4" y="9" width="12" height="6" rx="1"/><rect x="21" y="10" width="1.6" height="4" rx="0.8"/></svg>
+        </span>
+      </div>
+      <div class="content" id="content"></div>
+      <button class="histBtn" id="histBtn" hidden aria-label="Historique"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
+      <div class="actionbar" id="actionbar" hidden></div>
+      <div class="navbar" id="navbar" hidden></div>
+      <button class="homeind" id="homeind" aria-label="Retour à l'accueil du téléphone"></button>
+    </div>
+    <div class="toast" id="toast"></div>
   </div>
-
 </div>
 
-<script type="module" src="src/phone.js"></script>
+<footer>Tape une des trois icônes Resto IA pour ouvrir l'appli, connecte-toi ou lance la démo, puis navigue.<br>Le trait en bas de l'appli ramène à l'accueil du téléphone — les autres icônes sont décoratives.</footer>
+
+<script src="src/data.js?v=2"></script>
+<script src="src/app.js?v=2"></script>
+<script src="src/app-gerant.js?v=2"></script>
+<script src="src/app-cuisine.js?v=2"></script>
+<script src="src/app-commercial.js?v=2"></script>
+<script>RIA.boot();</script>
 </body>
 </html>

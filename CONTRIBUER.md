@@ -45,8 +45,11 @@ pas de compte, pas de clé d'API. Ce sont des fichiers ouverts par le navigateur
 ## 2. À lire avant de toucher quoi que ce soit
 
 1. `resto-ia/maquette/README.md` — l'architecture et le contrat d'une application.
-2. `resto-ia/docs/prd.md` — la décision produit. Elle fait foi.
-3. Le business plan le plus récent (`BUSINESS_PLAN_v1.7.pdf` chez Hayden) pour
+   Il explique surtout **d'où vient la forme** : tout est repris de `devis60/`.
+2. `devis60/design/v0/classes.md` — la liste des classes CSS qui existent. Tu
+   n'as le droit d'utiliser que celles-là.
+3. `resto-ia/docs/prd.md` — la décision produit. Elle fait foi.
+4. Le business plan le plus récent (`BUSINESS_PLAN_v1.7.pdf` chez Hayden) pour
    les chiffres. **Ne jamais inventer un chiffre** : tout ce qui s'affiche dans
    la maquette doit venir du business plan ou être une donnée d'exemple
    assumée (un nom de client, une adresse).
@@ -57,42 +60,44 @@ Tous les chemins sont relatifs à `resto-ia/maquette/` dans le dépôt privé.
 
 | Ce que tu veux changer | Le fichier à ouvrir | À ne pas toucher |
 |---|---|---|
-| Couleurs, polices, châssis du téléphone, boutons, cartes | `src/theme.css` | rien d'autre : c'est la seule couche visuelle partagée |
 | Un écran, un onglet, une animation de l'app **gérant** | `src/app-gerant.js` | les deux autres apps |
 | Idem pour l'app **cuisine** | `src/app-cuisine.js` | les deux autres apps |
 | Idem pour l'app **commercial** | `src/app-commercial.js` | les deux autres apps |
 | Un prix, un menu, un prospect, un forfait, un texte de règle | `src/data.js` | ne jamais écrire un chiffre en dur dans une app |
-| Les icônes de l'écran d'accueil, les glyphes | `src/icons.js` | |
-| L'ouverture d'app, les notifications, les toasts, les feuilles | `src/phone.js` | |
-| Un helper partagé (topbar, navbar, courbe, anneau, compteur) | `src/ui.js` | |
-| Le téléphone lui-même, la barre d'état, le panneau de gauche | `index.html` | |
+| L'écran d'accueil du téléphone, les icônes de décor, l'ouverture d'appli, les toasts, les feuilles | `src/app.js` | |
+| Le châssis, la barre d'état, le pied de page | `index.html` | |
+| L'apparence | **normalement rien** — voir la règle 1 ci-dessous | `src/theme.css` |
 
 **Ajouter une quatrième application** : créer `src/app-xxx.js` sur le même
-contrat que les trois autres, puis l'importer dans `src/phone.js` et l'ajouter
-au tableau `APPS`. Elle apparaît automatiquement sur l'écran d'accueil.
+contrat que les trois autres (il se termine par un `RIA.register({…})`), puis
+ajouter sa balise `<script>` dans `index.html`. Elle apparaît automatiquement
+sur l'écran d'accueil.
 
 ## 4. Les règles qui ne se négocient pas
 
-1. **Aucune dépendance, aucun build, aucun framework.** Pas de npm, pas de
-   React, pas de Tailwind, pas d'étape de compilation. Du HTML, du CSS et du
-   JavaScript que le navigateur lit directement. C'est ce qui permet à
-   n'importe qui de reprendre le projet dans dix mois.
-2. **Une application ne peut pas repeindre une autre.** Chaque app porte son
-   CSS dans sa propriété `css`, et **toutes ses classes sont préfixées** :
-   `.gr-` pour le gérant, `.ku-` pour la cuisine, `.cm-` pour le commercial.
-   Une classe non préfixée dans un fichier d'app est un bug.
+1. **`src/theme.css` est le CSS de devis60, copié tel quel — on ne l'édite
+   pas.** Il contient les trois couches que le navigateur reçoit en production
+   (feuille de l'application, passe atelier, `devis60/src/theme.js`). Si
+   devis60 change de peau, on recopie ; on ne bricole pas la copie. Et
+   **aucune classe nouvelle** : un écran se compose avec les classes qui
+   existent déjà. S'il en manque une, c'est qu'un composant de devis60 fait
+   déjà le travail — cherche-le dans `theme.css`.
+2. **ES5 uniquement, comme devis60** : `var` et `function`, pas de `const`
+   ni `let`, pas de fonction fléchée, pas de gabarit `` `…` ``, pas de module
+   ES. Les fichiers sont chargés par des `<script>` classiques.
 3. **L'argent est en centimes entiers, les durées en secondes.** Comme le
    schéma `resto-ia/supabase/migrations`. Les euros et les minutes sont
    calculés à l'affichage, avec les fonctions de `fmt` dans `src/data.js`.
 4. **Aucun bouton mort.** Si un bouton existe, il fait quelque chose de
    visible. Une maquette dont la moitié des boutons ne répondent pas ne sert
    à rien pour montrer le produit.
-5. **`monter()` rend une fonction de nettoyage** qui annule tous les
-   `setInterval`, `setTimeout`, `requestAnimationFrame` et contextes audio.
-   Sans ça, les minuteurs continuent à tourner après la fermeture de l'app et
-   la page finit par ramer.
-6. **`prefers-reduced-motion` est respecté** : la fonction `reduit()` de
-   `src/ui.js` sert à couper les animations longues.
+5. **Tous les minuteurs passent par `RIA.every()` et `RIA.after()`.** Ils sont
+   annulés automatiquement quand on change d'onglet ou qu'on ferme l'appli. Un
+   `setInterval` direct continue de tourner et finit par faire ramer la page.
+6. **Les animations sont celles de devis60** : le fondu de `setContent`,
+   l'écriture progressive des bulles, `.thinkDots`. N'en invente pas une qui
+   demanderait du CSS nouveau ; `prefers-reduced-motion` est déjà géré par
+   `theme.css`.
 7. **Ne pas toucher `devis60/` ni `wrangler.toml` à la racine.** C'est un autre
    projet, déployé automatiquement sur Cloudflare à chaque push sur la branche
    par défaut. En particulier : ne jamais éditer `devis60/src/app-html.js`,
@@ -113,12 +118,13 @@ git checkout -b claude/ma-modification
 
 # 3. éditer les fichiers concernés (voir le tableau du §3)
 
-# 4. essayer pour de vrai — les modules ES ne se chargent pas en file://
+# 4. essayer pour de vrai
 cd resto-ia/maquette && python3 -m http.server 8080
 #    puis ouvrir http://localhost:8080 et cliquer partout
+#    (après une modification : recharge en forçant, ou incrémente le ?v= d'index.html)
 
-# 5. vérifier la syntaxe de chaque module modifié
-cp src/app-gerant.js /tmp/t.mjs && node --check /tmp/t.mjs
+# 5. vérifier la syntaxe de chaque fichier modifié
+node --check src/app-gerant.js
 
 # 6. commiter
 git add -A && git commit -m "…"
@@ -143,12 +149,17 @@ git remote add public https://github.com/haydenrouet2104-web/resto-ia-maquette.g
 - [ ] Les onglets de chaque application s'affichent tous.
 - [ ] Ça tient à **375 px de large** (outils de développement, mode téléphone).
 - [ ] Aucun chiffre inventé : tout vient du business plan ou de `data.js`.
-- [ ] `node --check` passe sur chaque module modifié.
+- [ ] `node --check` passe sur chaque fichier modifié.
+- [ ] Aucune classe CSS inventée, aucun `<style>`, aucun `const`/`let`/fléchée.
 
 ## 7. Pièges connus
 
-- **Double-cliquer sur `index.html` ne marche pas.** Les modules ES sont
-  bloqués en `file://`. Il faut un serveur local (§5, étape 4).
+- **Un `<svg>` sans `width`/`height` occupe 300 × 150 px** et fait éclater son
+  conteneur. `RIA.svg()` pose une taille par défaut ; si tu écris un `<svg>` à
+  la main, donne-lui la sienne.
+- **Une enveloppe `.docsheetOv` laissée en permanence dans le DOM floute tout
+  l'écran** : la couche de production lui applique un `backdrop-filter`.
+  `RIA.sheet()` la crée puis la retire, comme le fait devis60.
 - **Le site semble ne pas se mettre à jour** : GitHub Pages met 30 à 60
   secondes à reconstruire, et le navigateur garde l'ancienne version en cache.
   Recharger en forçant (Cmd+Shift+R).
@@ -157,5 +168,6 @@ git remote add public https://github.com/haydenrouet2104-web/resto-ia-maquette.g
   ```bash
   git push public `git subtree split --prefix=resto-ia/maquette HEAD`:main --force
   ```
-- **Une app plante et affiche un message d'erreur rouge** : c'est `phone.js`
-  qui rattrape l'exception. Le détail est dans la console.
+- **Une appli ne s'ouvre pas** : regarde la console. Une erreur dans un
+  `src/app-*.js` empêche son `RIA.register()` de s'exécuter, et son icône
+  disparaît simplement de l'écran d'accueil.

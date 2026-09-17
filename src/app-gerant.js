@@ -1,1032 +1,912 @@
 /* =========================================================================
-   Application GÉRANT — « Snack Le Comptoir »
-   Cinq onglets : Service, Appels, Menu, Voix, Compte.
-   Reprend §2, §3, §4 et §7 du business plan v1.7.
-   Vanilla : aucune dépendance, aucun build. Toutes les classes locales
-   sont préfixées .gr- ; le reste vient de theme.css.
+   Resto IA — application GÉRANT.
+   Même écriture que devis60 : ES5, une IIFE, des fonctions renderXxxScreen()
+   qui appellent renderNavbar(), construisent une chaîne de HTML, la posent
+   avec setContent(), branchent les écouteurs puis règlent l'actionbar.
+   Aucune classe CSS nouvelle : tout vient de theme.css (repris de devis60).
+   Chiffres : uniquement D (data.js), argent en centimes via RIA.eur().
    ========================================================================= */
+(function(){
+  "use strict";
 
-import {
-  topbar, navbar, sparkline, anneau, compte,
-  el, esc, on, horloge, vibrer, reduit
-} from './ui.js';
-import { ico } from './icons.js';
-import {
-  RESTO, CHARGES, FORFAITS, VOIX, MENU, COMMANDES, APPEL_DEMO, SMS_RECAP,
-  APPELS, JOUR, REGLES, COUT_IA_MIN, fmt, forfaitDe
-} from './data.js';
+  var $ = RIA.$, esc = RIA.esc, eur = RIA.eur, eur0 = RIA.eur0, svg = RIA.svg;
 
-/* ------------------------------------------------------------------ état
-   Copies locales : la maquette modifie son état sans toucher data.js.   */
-const copie = o => (typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o)));
+  /* ---------- petite bibliothèque d'icônes (même principe que devis60) ---------- */
+  var I = {
+    phone:'<path d="M6.6 3.5 4 6.1c-.7.7-.9 1.8-.5 2.7a20 20 0 0 0 11.7 11.7c.9.4 2 .2 2.7-.5l2.6-2.6-4.2-2.8-2 1.6a15 15 0 0 1-6.5-6.5l1.6-2z"/>',
+    power:'<path d="M12 3v7"/><path d="M6.5 6.5a8 8 0 1 0 11 0"/>',
+    carte:'<path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h4"/>',
+    micro:'<path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/>',
+    profil:'<circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.9 3.1-6.5 7-6.5S19 16.1 19 20"/>',
+    feu:'<path d="M12 3c3 4 5 6 5 9a5 5 0 0 1-10 0c0-1.4.6-2.6 1.6-3.8C9.8 9.6 11 7.2 12 3z"/>',
+    stop:'<rect x="5" y="5" width="14" height="14" rx="3"/>',
+    sms:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
+    check:'<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>',
+    transfert:'<path d="M4 8h12l-3-3M20 16H8l3 3"/>',
+    horloge:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    import:'<path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    camion:'<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',
+    carteb:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/>',
+    bouclier:'<path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6z"/>',
+    doc:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h6"/>',
+    alerte:'<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
+    play:'<path d="M8 5l11 7-11 7z"/>',
+    oeil:'<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/>',
+    envoi:'<path d="M4 20 20 12 4 4v6l12 2-12 2Z"/>'
+  };
 
-const S = {
-  onglet:'service',
-  charge:RESTO.charge,          // normal | rush | charge | stop
-  repriseA:0,                   // horodatage de reprise après un arrêt 30 min
-  menu:copie(MENU),
-  voix:copie(VOIX),
-  consentVoix:false,
-  voixPrete:false,
-  testValide:false,
-  forfait:RESTO.forfait,
-  minutes:RESTO.minutesUtilisees,
-  vuAppels:false
-};
+  /* ---------- état local (la maquette ne persiste rien) ---------- */
+  var chargeId   = D.resto.charge;
+  var reprise    = "";
+  var menuCat    = 0;
+  var compteTab  = "horaires";
+  var scopeIdx   = 0;
+  var forfaitSel = D.resto.forfait;
+  var testVoix   = false;
+  var voix = { prenom:D.voix.prenom, ton:D.voix.ton, vitesse:D.voix.vitesse,
+               langues:D.voix.langues.slice(0), accueil:D.voix.accueil, signature:D.voix.signature };
+  var livr = { minimum:D.livraison.minimum, frais:D.livraison.frais };
 
-const ONGLETS = [
-  { id:'service', label:'Service', icone:'flame' },
-  { id:'appels',  label:'Appels',  icone:'phone', badge:2 },
-  { id:'menu',    label:'Menu',    icone:'book' },
-  { id:'voix',    label:'Voix',    icone:'mic' },
-  { id:'compte',  label:'Compte',  icone:'card' }
-];
+  var ETATS = {
+    appel:       { lbl:"IA en appel",              pill:"attente" },
+    attente:     { lbl:"En attente de confirmation", pill:"attente" },
+    confirmee:   { lbl:"Confirmée",                pill:"signe" },
+    preparation: { lbl:"En préparation",           pill:"signe" },
+    prete:       { lbl:"Prête",                    pill:"signe" },
+    expiree:     { lbl:"Expirée",                  pill:"refuse" }
+  };
+  var ISSUES = {
+    commande:  { lbl:"Commande",  pill:"signe" },
+    question:  { lbl:"Question",  pill:"attente" },
+    transfert: { lbl:"Transfert", pill:"attente" },
+    expiree:   { lbl:"Expirée",   pill:"refuse" }
+  };
+  var SCOPES = [
+    { nom:"Ouverture physique",            tag:"Salle", dot:true,  sous:"Salle et comptoir ouverts." },
+    { nom:"Prise de commande téléphonique", tag:"Tél.",  dot:true,  sous:"Dernière commande 15 minutes avant la fermeture." },
+    { nom:"Livraison",                      tag:"Livr.", dot:false, sous:"Le soir uniquement, rayon " + D.livraison.rayon + ", délai " + D.livraison.delai + " min." }
+  ];
+  var JOURS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
-/* ------------------------------------------------- minuteurs de la vue
-   Tout ce qui tourne est enregistré ici et annulé au changement d'onglet
-   comme à la fermeture de l'application.                                */
-let minuteurs = [];
-const apres  = (fn, ms) => { const id = setTimeout(fn, ms); minuteurs.push(() => clearTimeout(id)); return id; };
-const chaque = (fn, ms) => { const stop = horloge(fn, ms); minuteurs.push(stop); return stop; };
-function trame(fn){
-  let id = requestAnimationFrame(function boucle(t){
-    if (fn(t) !== false) id = requestAnimationFrame(boucle);
-  });
-  minuteurs.push(() => cancelAnimationFrame(id));
-}
-function nettoyerVue(){ minuteurs.forEach(f => { try { f(); } catch(e){} }); minuteurs = []; }
-
-/* ------------------------------------------------------------ utilitaires */
-const chargeCourante = () => CHARGES[S.charge];
-const delaiTexte = () => (S.charge === 'stop' ? 'commandes stoppées' : chargeCourante().delai + ' min');
-const tonChip = t => (t === 'ok' ? 'ok' : t === 'warn' ? 'warn' : t === 'bad' ? 'bad' : '');
-const mm = sec => String(Math.floor(sec/60)).padStart(2,'0') + ':' + String(Math.floor(sec)%60).padStart(2,'0');
-const produits = () => S.menu.flatMap(c => c.items);
-const trouver = id => produits().find(p => p.id === id);
-
-/* Phrase d'accueil réellement prononcée, prénom injecté. */
-function phraseAccueil(){
-  const v = S.voix, cle = 'assistant vocal automatisé';
-  return v.accueil.includes(cle)
-    ? v.accueil.replace(cle, 'je suis ' + v.prenom + ', ' + cle)
-    : v.accueil;
-}
-
-/* ========================================================================
-   ONGLET 1 — SERVICE
-   ===================================================================== */
-function vueService(){
-  const c = chargeCourante();
-  const stop = S.charge === 'stop';
-  const dernieres = COMMANDES.filter(o => o.etat !== 'appel').slice(0, 3);
-
-  return `
-  <section class="sec stagger">
-    <div class="card gr-hero">
-      <div class="row between">
-        <span class="chip ${stop ? 'bad' : 'ok'}"><i class="dot blink"></i>${stop ? 'Commandes stoppées' : 'En ligne'}</span>
-        <span class="eyebrow">${esc(RESTO.tel)}</span>
-      </div>
-      <div class="gr-delai">
-        <b class="num" data-delai>${stop ? '—' : c.delai}</b>
-        <span>${stop ? 'l’IA répond encore aux questions' : 'minutes annoncées au client'}</span>
-      </div>
-      <div class="seg" data-charges>
-        ${Object.keys(CHARGES).map(k => `<button data-charge="${k}" aria-pressed="${k === S.charge}">${esc(CHARGES[k].nom)}</button>`).join('')}
-      </div>
-      <div class="note ${c.ton === 'ok' ? '' : c.ton === 'warn' ? 'warn' : 'bad'} gr-dit">
-        <b>Ce que l’IA dit au client.</b> ${esc(c.dit)}
-      </div>
-      ${stop && S.repriseA ? `<div class="note bad"><b>Reprise dans <span class="mono" data-reprise>30:00</span></b> — l’IA annonce l’heure estimée de reprise.</div>` : ''}
-      <button class="cta ${stop ? 'ok' : 'ghost'}" data-stop30>
-        ${ico(stop ? 'play' : 'pause')}${stop ? 'Reprendre les commandes' : 'Arrêter les commandes 30 minutes'}
-      </button>
-      <p class="gr-mini">L’assistant ${esc(S.voix.prenom)} continue de répondre aux horaires, à l’adresse et aux questions même commandes arrêtées.</p>
-    </div>
-
-    <div class="card">
-      <div class="sec-head"><h3>Chiffres du jour</h3><span class="eyebrow">depuis 11h30</span></div>
-      <div class="grid3 gr-stats">
-        <div class="stat"><b data-cpt="${JOUR.appelsPris}">0</b><span>appels pris</span></div>
-        <div class="stat"><b data-cpt="${JOUR.commandes}">0</b><span>commandes confirmées</span></div>
-        <div class="stat"><b data-cpt="${JOUR.expirees}" data-ton="bad">0</b><span>expirées</span></div>
-      </div>
-      <div class="grid2 gr-stats" style="margin-top:10px">
-        <div class="stat"><b data-cpt="${JOUR.ca}" data-euro>0</b><span>CA récupéré par l’IA</span></div>
-        <div class="stat"><b data-cpt="${JOUR.panierMoyen}" data-euro>0</b><span>panier moyen</span></div>
-      </div>
-      <div class="gr-spark">${sparkline(JOUR.courbe, { h:58 })}</div>
-      <div class="row between gr-mini"><span>11h30</span><span>pic : 14 appels vers 21h00</span><span>23h00</span></div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-head"><h3>Dernières commandes</h3>
-        <button class="cta sm ghost" data-cuisine>${ico('ticket')}Voir l’écran cuisine</button></div>
-      <div class="list">
-        ${dernieres.map(o => `
-        <div class="listrow">
-          <span class="ic" style="color:${o.etat === 'expiree' ? 'var(--bad)' : 'var(--ok)'}">${ico(o.mode === 'livraison' ? 'bike' : 'bag')}</span>
-          <span class="tx"><b>#${o.id} · ${esc(o.client || 'client non identifié')}</b>
-            <span>${o.heure} · ${o.mode} · ${esc(o.lignes.map(l => l.q + '× ' + l.nom).join(', '))}</span></span>
-          <span class="num">${fmt.euro(o.total)}</span>
-        </div>`).join('')}
-      </div>
-    </div>
-  </section>`;
-}
-
-function monterService(root, api){
-  /* compteurs animés */
-  root.querySelectorAll('[data-cpt]').forEach(n => {
-    const fin = Number(n.dataset.cpt);
-    const euro = n.hasAttribute('data-euro');
-    if (n.dataset.ton === 'bad') n.style.color = 'var(--bad)';
-    compte(n, fin, { duree:900, format:v => euro ? fmt.euroCourt(v) : Math.round(v).toString() });
-  });
-
-  /* sélecteur de charge — change réellement le délai annoncé partout */
-  on(root, '[data-charge]', 'click', (ev, b) => {
-    S.charge = b.dataset.charge;
-    if (S.charge !== 'stop') S.repriseA = 0;
-    vibrer(8);
-    api.toast('Charge « ' + CHARGES[S.charge].nom + ' » — délai annoncé : ' + delaiTexte() + '.');
-    rendre(api);
-  });
-
-  /* arrêt 30 minutes : l'IA continue de répondre aux questions */
-  on(root, '[data-stop30]', 'click', () => {
-    if (S.charge === 'stop'){
-      S.charge = 'normal'; S.repriseA = 0;
-      api.toast('Prise de commande rouverte — délai annoncé : 15 min.');
-    } else {
-      S.charge = 'stop'; S.repriseA = Date.now() + 30*60*1000;
-      api.notif({ titre:'Commandes arrêtées 30 minutes', texte:'L’IA répond encore aux questions et annonce l’heure de reprise.',
-                  couleur:'#e0776e', glyph:'pause' });
-    }
-    vibrer(12);
-    rendre(api);
-  });
-
-  /* décompte de reprise */
-  const rep = root.querySelector('[data-reprise]');
-  if (rep) chaque(() => {
-    const reste = Math.max(0, Math.round((S.repriseA - Date.now())/1000));
-    rep.textContent = mm(reste);
-    if (reste === 0){ S.charge = 'normal'; S.repriseA = 0; rendre(api); }
-  }, 1000);
-
-  on(root, '[data-cuisine]', 'click', () => { api.toast('Passage sur l’écran cuisine…'); api.basculer('cuisine'); });
-}
-
-/* ========================================================================
-   ONGLET 2 — APPELS : journal + rejeu d'un appel en direct
-   ===================================================================== */
-const ISSUES = {
-  commande: { nom:'Commande',  chip:'ok',   ic:'check' },
-  question: { nom:'Question',  chip:'info', ic:'sms' },
-  transfert:{ nom:'Transfert', chip:'warn', ic:'hand' },
-  expiree:  { nom:'Expirée',   chip:'bad',  ic:'x' }
-};
-
-function vueAppels(){
-  return `
-  <section class="sec stagger">
-    <div class="card gr-live">
-      <div class="row between">
-        <span class="chip acc">${ico('wave')}Appel en direct</span>
-        <span class="mono gr-chrono" data-chrono>00:00</span>
-      </div>
-      <div class="row between gr-live-head">
-        <span class="gr-mini">06 •• •• •• 47 · renvoi sur non-réponse</span>
-        <span class="chip warn" data-etat><i class="dot blink"></i>En cours</span>
-      </div>
-
-      <div class="gr-wave" data-onde>${Array.from({ length:26 }, (_, i) => `<i style="animation-delay:${(i*47)%620}ms"></i>`).join('')}</div>
-
-      <div class="gr-live-body">
-        <div class="gr-flux" data-flux></div>
-        <aside class="gr-panier">
-          <span class="eyebrow">Panier</span>
-          <div data-panier><p class="gr-mini">vide</p></div>
-          <div class="gr-total"><span>Total</span><b class="num" data-total>0,00 €</b></div>
-        </aside>
-      </div>
-
-      <div data-sms></div>
-
-      <div class="row between gr-cout">
-        <span class="gr-mini">Coût IA · 0,12 €/min</span>
-        <span class="num" data-cout>0,00 €</span>
-      </div>
-      <div class="grid2">
-        <button class="cta sm ghost" style="width:100%" data-rejouer>${ico('refresh')}Rejouer</button>
-        <button class="cta sm ghost" style="width:100%" data-transfert>${ico('hand')}Transférer</button>
-      </div>
-      <p class="gr-mini">${esc(REGLES.confirmation)}</p>
-    </div>
-
-    <div class="sec">
-      <div class="sec-head"><h3>Journal des appels</h3><span class="eyebrow">${APPELS.length} aujourd’hui</span></div>
-      <div class="list">
-        ${APPELS.map(a => { const i = ISSUES[a.issue]; return `
-        <button class="listrow" data-appel="${a.id}">
-          <span class="ic" style="color:var(--${i.chip === 'ok' ? 'ok' : i.chip === 'bad' ? 'bad' : i.chip === 'warn' ? 'warn' : 'info'})">${ico(i.ic)}</span>
-          <span class="tx"><b>${a.heure} · ${esc(i.nom)}</b>
-            <span>${esc(a.numero)} · ${fmt.duree(a.duree)}${a.cmd ? ' · #' + a.cmd : ''}${a.motif ? ' · ' + esc(a.motif) : ''}${a.q ? ' · ' + esc(a.q) : ''}</span></span>
-          ${a.montant ? `<span class="num">${fmt.euro(a.montant)}</span>` : '<span class="gr-mini">—</span>'}
-          ${ico('chev', 'chev')}
-        </button>`; }).join('')}
-      </div>
-    </div>
-  </section>`;
-}
-
-function monterAppels(root, api){
-  if (!S.vuAppels){ S.vuAppels = true; api.badge(0); ONGLETS[1].badge = 0; }
-
-  const flux  = root.querySelector('[data-flux]');
-  const onde  = root.querySelector('[data-onde]');
-  const chron = root.querySelector('[data-chrono]');
-  const cout  = root.querySelector('[data-cout]');
-  const etat  = root.querySelector('[data-etat]');
-  const bacP  = root.querySelector('[data-panier]');
-  const totP  = root.querySelector('[data-total]');
-  const bacS  = root.querySelector('[data-sms]');
-  let jeton = null;                 // identifie la lecture en cours
-  let panier = [];
-
-  /* --- rendu du panier qui se construit pendant l'appel --- */
-  function majPanier(neuf){
-    if (!panier.length){ bacP.innerHTML = '<p class="gr-mini">vide</p>'; totP.textContent = fmt.euro(0); return; }
-    bacP.innerHTML = panier.map((l, i) => `
-      <div class="gr-pline${neuf && i === panier.length-1 ? ' is-neuf' : ''}">
-        <b>${l.q}× ${esc(l.nom)}</b>
-        ${(l.options || []).map(o => `<span>${esc(o)}</span>`).join('')}
-        ${(l.supplements || []).map(o => `<span class="acc">+ ${esc(o)}</span>`).join('')}
-        <em class="num">${fmt.euro(l.prix)}</em>
-      </div>`).join('');
-    const t = panier.reduce((s, l) => s + l.prix, 0);
-    compte(totP, t, { duree:420, format:v => fmt.euro(v) });
+  /* ---------- fragments repris de devis60 ---------- */
+  function bloc(html){ return '<div class="ag-rows">' + html + '</div>'; }
+  function topbar(eyebrow, titre, chips){
+    return '<div class="topbar"><span class="eyebrow">' + esc(eyebrow) + '</span><h1>' + esc(titre) + '</h1>' + (chips ? '<div class="chip-row">' + chips + '</div>' : '') + '</div>';
+  }
+  function fsection(t){ return '<div class="fsection">' + esc(t) + '</div>'; }
+  function ligne(n, sous, v, added){
+    return '<div class="line' + (added ? ' added' : '') + '"><div class="n">' + esc(n) + (sous ? '<small>' + esc(sous) + '</small>' : '') + '</div><div class="v">' + esc(v) + '</div></div>';
+  }
+  function acctrow(k, v){ return '<div class="acctrow"><span>' + esc(k) + '</span><span>' + esc(v) + '</span></div>'; }
+  function factcard(id, icone, titre, sous, bouton){
+    return '<div class="factcard"><div class="fc-ico">' + svg(icone) + '</div>' + '<div class="fc-info"><div class="fc-title">' + esc(titre) + '</div><div class="fc-sub">' + esc(sous) + '</div></div>' +
+      (bouton ? '<button class="fc-btn" id="' + id + '">' + esc(bouton) + '</button>' : '') + '</div>';
+  }
+  function qchip(val, txt, on){
+    return '<button class="qchip' + (on ? ' primary' : '') + '" data-v="' + esc(val) + '">' + esc(txt) + '</button>';
+  }
+  function banniere(txt){ return '<div class="alert-banner">' + svg(I.alerte) + '<span>' + esc(txt) + '</span></div>'; }
+  function barre(libelle, pct, ton){
+    return '<div class="charge-wrap"><span class="charge-lbl">' + esc(libelle) + '</span>' + '<div class="charge-bar"><div class="charge-fill ' + (ton || "ok") + '" style="width:' + pct + '%"></div></div></div>';
+  }
+  function tabs(liste, actif){
+    return '<div class="journaltabs">' + liste.map(function(t){
+      return '<button class="jtab' + (t.id === actif ? ' on' : '') + '" data-jt="' + esc(t.id) + '">' + esc(t.lbl) + (t.n != null ? '<span class="jn">' + t.n + '</span>' : '') + '</button>';
+    }).join("") + '</div>';
+  }
+  function surTabs(fn){
+    var b = $("content").querySelectorAll(".jtab");
+    for (var i = 0; i < b.length; i++) b[i].addEventListener("click", function(){ fn(this.dataset.jt); });
+  }
+  function surClic(id, fn){ var e = $(id); if (e) e.addEventListener("click", fn); }
+  function surTous(racine, sel, fn){
+    var n = racine.querySelectorAll(sel);
+    for (var i = 0; i < n.length; i++) n[i].addEventListener("click", fn);
   }
 
-  function bulle(e){
-    const b = el(`<div class="gr-bulle is-${e.qui}">${e.qui === 'sys' ? ico('sparkle') : ''}<span>${esc(e.txt)}</span></div>`);
-    flux.appendChild(b);
-    flux.scrollTop = flux.scrollHeight;
+  /* Progression simulée : la seule largeur en style= de tout le fichier. */
+  function simuler(hote, libelle, fin){
+    hote.innerHTML = barre(libelle, 0);
+    var p = 0;
+    var id = RIA.every(function(){
+      p += 6 + Math.round(Math.random() * 11);
+      if (p >= 100){ p = 100; clearInterval(id); RIA.after(fin, 340); }
+      var f = hote.querySelector(".charge-fill");
+      if (f) f.style.width = p + "%";
+    }, 150);
   }
 
-  /* --- lecture accélérée : ~150 ms par seconde d'appel simulée --- */
-  function jouer(){
-    const mien = {}; jeton = mien;
-    panier = []; majPanier(false);
-    flux.innerHTML = ''; bacS.innerHTML = '';
-    etat.className = 'chip warn'; etat.innerHTML = '<i class="dot blink"></i>En cours';
-    chron.textContent = '00:00'; cout.textContent = fmt.euro(0);
+  function charge(){
+    var c = D.charges.filter(function(x){ return x.id === chargeId; })[0];
+    return c || D.charges[0];
+  }
+  function phraseClient(c){
+    if (c.id === "stop") return "Le restaurant a arrêté les commandes pour le moment" + (reprise ? ", reprise prévue vers " + reprise : "") + ". Je peux répondre à vos questions.";
+    if (c.id === "normal") return "Ce sera prêt dans " + c.delai + " minutes au comptoir.";
+    if (c.id === "rush")   return "Il y a du monde ce soir, ce sera prêt dans " + c.delai + " minutes. Est-ce que cela vous convient ?";
+    return "Nous sommes très chargés : " + c.delai + " minutes d'attente, et la livraison est suspendue. Le retrait vous convient ?";
+  }
+  function produit(id){
+    for (var i = 0; i < D.menu.length; i++)
+      for (var j = 0; j < D.menu[i].items.length; j++)
+        if (D.menu[i].items[j].id === id) return D.menu[i].items[j];
+    return null;
+  }
+  function commande(id){ return D.commandes.filter(function(c){ return c.id === id; })[0]; }
+  function coutIA(sec){ return Math.round(D.coutMinute * sec / 60); }
+  function forfait(id){ return D.forfaits.filter(function(f){ return f.id === id; })[0] || D.forfaits[2]; }
 
-    const PAS = reduit() ? 45 : 150;          // ms réelles par seconde simulée
-    const t0 = performance.now();
-    let i = 0, parleJusqu = 0;
+  /* =======================================================================
+     1) SERVICE — état en ligne, charge, chiffres du jour, dernières commandes
+     ======================================================================= */
+  function renderServiceScreen(){
+    RIA.renderNavbar("service");
+    var c = charge(), ouvert = c.id !== "stop", j = D.jour;
+    var chipsCharges = D.charges.map(function(x){ return qchip(x.id, x.nom, x.id === chargeId); }).join("");
+    var cartes = D.commandes.slice(0, 3).map(function(o){
+      var e = ETATS[o.etat];
+      return '<div class="card" data-cmd="' + o.id + '"><div class="row1"><div><div class="who">#' + o.id + (o.client ? ' · ' + esc(o.client) : '') + '</div>' +
+        '<div class="job">' + esc(o.mode === "livraison" ? "Livraison" : "Retrait") + ' · ' + esc(o.heure) + '</div></div>' + '<div class="amtwrap"><span class="amount">' + eur(o.total) + '</span></div></div>' +
+        '<div class="row2"><span class="date">' + esc(o.prete ? "prête " + o.prete : "en cours") + '</span>' + RIA.pill(e.lbl, e.pill) + '</div></div>';
+    }).join("");
 
-    trame(now => {
-      if (jeton !== mien) return false;
-      const ts = (now - t0)/PAS;
-      chron.textContent = fmt.horloge(Math.min(ts, 82));
-      cout.textContent = fmt.euro(Math.round(ts/60*COUT_IA_MIN));
+    RIA.setContent(
+      topbar("Service", D.resto.nom, RIA.chip(ouvert ? "En ligne" : "Stoppé", I.power) + RIA.chip(D.resto.tel, I.phone) + RIA.pill(c.nom, c.pill)) +
+      bloc(factcard("goCuisine", I.feu, "Écran cuisine", D.commandes.length + " commandes suivies · alerte sonore active", "Ouvrir")) +
+      fsection("Charge du service") + bloc('<div class="chips" id="chargeChips">' + chipsCharges + '</div>') + '<div class="lines">' +
+        ligne("Délai annoncé", "ce que l'IA promet au téléphone", ouvert ? c.delai + " min" : "aucune commande") + ligne("Retrait", "comptoir", ouvert ? "ouvert" : "suspendu") +
+        ligne("Livraison", D.livraison.rayon + " · " + eur(livr.frais) + " de frais", c.id === "normal" || c.id === "rush" ? "ouverte" : "suspendue") + '</div>' +
+      '<div class="lines"><div class="row bot"><div class="bub">' + esc(phraseClient(c)) + '</div></div></div>' + RIA.note("<b>Règle interne :</b> " + esc(c.dit)) + fsection("Aujourd'hui") +
+      '<div class="stats">' + RIA.stat(String(j.appels), "appels pris") + RIA.stat(String(j.commandes), "commandes") + RIA.stat(String(j.expirees), "expirées") +
+        RIA.stat(eur0(j.ca), "encaissé") + RIA.stat(eur(j.panier), "panier moyen") + RIA.stat(RIA.dur(j.minutes * 60), "minutes IA") + '</div>' +
+      RIA.note("Coût IA de la journée : <b>" + esc(eur(j.minutes * D.coutMinute)) + "</b> à " + esc(eur(D.coutMinute)) + " la minute · " + j.transferts + " transferts vers le restaurant.") +
+      fsection("Dernières commandes") + '<div class="list">' + cartes + '</div>'
+    );
 
-      while (i < APPEL_DEMO.length && APPEL_DEMO[i].t <= ts){
-        const e = APPEL_DEMO[i];
-        bulle(e);
-        if (e.qui === 'ia'){
-          const suiv = APPEL_DEMO[i+1] ? APPEL_DEMO[i+1].t : e.t + 6;
-          parleJusqu = e.t + Math.min(8, Math.max(3, suiv - e.t - 1));
-        }
-        if (e.panier){ panier.push(Object.assign({}, e.panier)); majPanier(true); }
-        if (e.maj){ Object.assign(panier[panier.length-1], e.maj); majPanier(true); }
-        if (e.sms){
-          bacS.innerHTML = `<div class="gr-sms">${ico('sms')}<pre>${esc(SMS_RECAP)}</pre></div>`;
-        }
-        if (e.confirme){
-          etat.className = 'chip ok'; etat.innerHTML = ico('check') + 'Confirmée';
-          vibrer(10);
-        }
-        if (e.fin){
-          etat.className = 'chip ok'; etat.innerHTML = ico('ticket') + '→ envoyée en cuisine';
-          api.notif({ titre:'Commande #248 confirmée', texte:'1 tacos M poulet · 10,50 € · retrait 19h48 — envoyée en cuisine.',
-                      couleur:'#5fbf8b', glyph:'check', onClic:() => api.basculer('cuisine') });
-        }
-        i++;
+    surClic("goCuisine", function(){ RIA.toast("Ouverture de l'écran cuisine…"); RIA.openApp("cuisine"); });
+    surTous($("content"), "#chargeChips .qchip", function(){
+      chargeId = this.dataset.v;
+      if (chargeId !== "stop") reprise = "";
+      renderServiceScreen();
+      RIA.toast("Charge « " + charge().nom + " » — délai annoncé mis à jour.");
+    });
+    surTous($("content"), ".card", function(){ sheetCommande(commande(parseInt(this.dataset.cmd, 10))); });
+
+    RIA.actionbar('<div class="ctabar"><button class="cta" id="btnStop">' + svg(ouvert ? I.stop : I.power) + (ouvert ? "Arrêter 30 minutes" : "Reprendre les commandes") + '</button><div class="secrow">' +
+      '<button class="sec" id="btnAppels">' + svg(I.phone) + 'Appel en cours</button>' + '<button class="sec" id="btnMenu">' + svg(I.carte) + 'Ruptures</button></div></div>');
+    surClic("btnStop", function(){
+      if (charge().id === "stop"){
+        chargeId = "normal"; reprise = "";
+        RIA.toast("Commandes rouvertes — délai annoncé " + charge().delai + " min.");
+      } else {
+        var d = new Date(Date.now() + 30 * 60000);
+        reprise = String(d.getHours()).padStart(2, "0") + "h" + String(d.getMinutes()).padStart(2, "0");
+        chargeId = "stop";
+        RIA.toast("Commandes stoppées. L'IA répond encore et annonce une reprise à " + reprise + ".");
       }
-
-      onde.classList.toggle('is-on', ts < parleJusqu && !reduit());
-      if (i >= APPEL_DEMO.length && ts > 82){ onde.classList.remove('is-on'); return false; }
-      return true;
+      renderServiceScreen();
     });
+    surClic("btnAppels", renderAppelsScreen);
+    surClic("btnMenu", sheetRuptures);
   }
 
-  on(root, '[data-rejouer]', 'click', () => { vibrer(8); jouer(); });
+  /* Détail d'une commande, dans la feuille coulissante. */
+  function sheetCommande(o){
+    if (!o) return;
+    var e = ETATS[o.etat];
+    var lignes = o.lignes.length ? o.lignes.map(function(l){
+      var sous = [l.opt, l.sup ? "+ " + l.sup : "", l.dem].filter(function(x){ return !!x; }).join(" · ");
+      return ligne(l.q + "× " + l.nom, sous, eur(l.prix));
+    }).join("") : '<div class="empty">Panier encore vide — l\'IA est en ligne avec le client.</div>';
 
-  /* cas « allergie évoquée » : transfert, aucune commande enregistrée */
-  on(root, '[data-transfert]', 'click', () => {
-    jeton = null; onde.classList.remove('is-on'); vibrer(14);
-    bulle({ qui:'cli', txt:'Attendez, ma fille est allergique aux fruits à coque, il y a quoi dedans ?' });
-    apres(() => bulle({ qui:'ia', txt:'Je préfère vous passer le restaurant pour une allergie. Je vous transfère tout de suite, ne quittez pas.' }), 420);
-    apres(() => {
-      bulle({ qui:'sys', txt:'Transfert vers le restaurant · aucune commande enregistrée' });
-      etat.className = 'chip warn'; etat.innerHTML = ico('hand') + 'Transférée';
-      panier = []; majPanier(false);
-      bacS.innerHTML = '<div class="note warn">' + esc(REGLES.allergenes) + '</div>';
-      api.toast('Transfert humain — rien n’est parti en cuisine.');
-    }, 900);
-  });
-
-  /* détail d'un appel du journal */
-  on(root, '[data-appel]', 'click', (ev, b) => {
-    const a = APPELS.find(x => x.id === Number(b.dataset.appel));
-    const i = ISSUES[a.issue];
-    const cmd = a.cmd ? COMMANDES.find(o => o.id === a.cmd) : null;
-    api.sheet('Appel de ' + a.heure, `
-      <div class="row between">
-        <span class="chip ${i.chip}">${esc(i.nom)}</span>
-        <span class="mono">${esc(a.numero)} · ${fmt.duree(a.duree)}</span>
-      </div>
-      <div class="grid3">
-        <div class="stat"><b class="num">${fmt.horloge(a.duree)}</b><span>durée</span></div>
-        <div class="stat"><b class="num">${fmt.euro(Math.round(a.duree/60*COUT_IA_MIN))}</b><span>coût IA</span></div>
-        <div class="stat"><b class="num">${a.montant ? fmt.euro(a.montant) : '—'}</b><span>panier</span></div>
-      </div>
-      ${cmd ? `<div class="card flat"><span class="eyebrow">Commande #${cmd.id} · ${esc(cmd.mode)}</span>
-        <div class="list" style="margin-top:8px">${cmd.lignes.map(l => `
-          <div class="row between"><span>${l.q}× ${esc(l.nom)}<br><span class="gr-mini">${esc(l.options.join(' · ') || '—')}</span></span>
-          <span class="num">${fmt.euro(l.prix)}</span></div>`).join('')}</div></div>` : ''}
-      ${a.motif ? `<div class="note warn"><b>Motif du transfert : ${esc(a.motif)}.</b> ${esc(REGLES.transfert)}</div>` : ''}
-      ${a.q ? `<div class="note info"><b>Question traitée sans commande.</b> ${esc(a.q)} — l’IA répond sur les horaires et l’adresse sans consommer de prise de commande.</div>` : ''}
-      ${a.issue === 'expiree' ? `<div class="note bad"><b>Expirée.</b> ${esc(REGLES.confirmation)}</div>` : ''}
-      <div class="note">${esc(REGLES.rgpd)}</div>`);
-  });
-
-  jouer();
-}
-
-/* ========================================================================
-   ONGLET 3 — MENU
-   ===================================================================== */
-function vueMenu(){
-  const nDispo = produits().filter(p => p.dispo).length;
-  return `
-  <section class="sec stagger">
-    <div class="card">
-      <div class="row between">
-        <div><b>Carte publiée</b><div class="gr-mini">${nDispo} produits disponibles sur ${produits().length}</div></div>
-        <button class="cta sm" data-import>${ico('sparkle')}Importer une carte</button>
-      </div>
-      <p class="gr-mini" style="margin-top:8px">Une rupture est immédiate pour les nouveaux appels, sans repasser par Publier.</p>
-    </div>
-
-    ${S.menu.map(cat => `
-    <div class="sec">
-      <div class="sec-head"><h3>${esc(cat.nom)}</h3><span class="eyebrow">${cat.items.length} produits</span></div>
-      <div class="list">
-        ${cat.items.map(p => `
-        <div class="listrow gr-prod${p.dispo ? '' : ' is-rupture'}">
-          <button class="tx" data-fiche="${p.id}">
-            <b>${esc(p.nom)} ${p.populaire ? '<span class="chip acc" style="margin-left:4px">populaire</span>' : ''}</b>
-            <span>${fmt.euro(p.prix)}${p.inclus.length ? ' · ' + esc(p.inclus.join(', ')) : ''}${p.dispo ? '' : ' · en rupture'}</span>
-          </button>
-          <button class="switch" role="switch" data-dispo="${p.id}" aria-checked="${p.dispo}" aria-label="Disponibilité de ${esc(p.nom)}"></button>
-        </div>`).join('')}
-      </div>
-    </div>`).join('')}
-
-    <div class="note">${esc(REGLES.allergenes)}</div>
-  </section>`;
-}
-
-function monterMenu(root, api){
-  /* interrupteur Disponible / En rupture — effet immédiat */
-  on(root, '[data-dispo]', 'click', (ev, b) => {
-    const p = trouver(b.dataset.dispo);
-    p.dispo = !p.dispo;
-    b.setAttribute('aria-checked', String(p.dispo));
-    b.closest('.gr-prod').classList.toggle('is-rupture', !p.dispo);
-    const sous = b.closest('.gr-prod').querySelector('.tx span');
-    sous.textContent = fmt.euro(p.prix) + (p.inclus.length ? ' · ' + p.inclus.join(', ') : '') + (p.dispo ? '' : ' · en rupture');
-    vibrer(8);
-    api.toast(p.dispo
-      ? esc(p.nom) + ' est de nouveau proposé par l’IA.'
-      : p.nom + ' : rupture immédiate pour les nouveaux appels, les commandes confirmées ne sont pas touchées.');
-  });
-
-  /* fiche produit complète */
-  on(root, '[data-fiche]', 'click', (ev, b) => {
-    const p = trouver(b.dataset.fiche);
-    api.sheet(p.nom, `
-      <div class="row between">
-        <span class="num" style="font-size:20px">${fmt.euro(p.prix)}</span>
-        <span class="chip ${p.dispo ? 'ok' : 'bad'}">${p.dispo ? 'Disponible' : 'En rupture'}</span>
-      </div>
-      ${p.inclus.length ? `<div class="card flat"><span class="eyebrow">Inclus</span><div>${esc(p.inclus.join(' · '))}</div>
-        <p class="gr-mini">La boisson ou les frites peuvent être retirées ou remplacées.</p></div>` : ''}
-
-      <div class="sec"><div class="sec-head"><h3>Choix obligatoires</h3><span class="eyebrow">ordre de l’IA</span></div>
-        <div class="list">${p.obligatoires.map((o, i) => `
-          <div class="listrow"><span class="ic num">${i+1}</span>
-            <span class="tx"><b>${esc(o.nom)} · ${o.min === o.max ? o.min + ' choix' : o.min + ' à ' + o.max + ' choix'}</b>
-            <span>${esc(o.choix.join(' · '))}</span></span></div>`).join('') || '<p class="gr-mini">Aucun.</p>'}</div>
-        <p class="gr-mini">L’IA pose les questions dans cet ordre.</p></div>
-
-      <div class="sec"><div class="sec-head"><h3>Suppléments</h3></div>
-        <div class="list">${p.supplements.map(s => `
-          <div class="row between"><span>${esc(s.nom)}</span>
-            <span class="row" style="gap:7px"><span class="num">${s.prix ? '+' + fmt.euro(s.prix) : 'offert'}</span>
-            <span class="chip ${s.dispo ? 'ok' : 'bad'}">${s.dispo ? 'dispo' : 'rupture'}</span></span></div>`).join('') || '<p class="gr-mini">Aucun.</p>'}</div></div>
-
-      ${p.precisions.length ? `<div class="sec"><div class="sec-head"><h3>Précisions</h3></div>
-        <div class="seg">${p.precisions.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>
-        <div class="note warn">${esc(REGLES.allergenes)}</div></div>` : ''}
-
-      ${p.demandes.length ? `<div class="sec"><div class="sec-head"><h3>Demandes admises</h3></div>
-        <div class="seg">${p.demandes.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div></div>` : ''}
-
-      <button class="cta ${p.dispo ? 'danger' : 'ok'}" data-bascule="${p.id}">
-        ${p.dispo ? 'Marquer en rupture maintenant' : 'Remettre en vente'}
-      </button>`, corps => {
-      on(corps, '[data-bascule]', 'click', () => {
-        p.dispo = !p.dispo;
-        api.fermerSheet();
-        api.toast(p.dispo ? p.nom + ' est remis en vente.' : p.nom + ' : rupture immédiate pour les nouveaux appels, les commandes confirmées ne sont pas touchées.');
-        rendre(api);
-      });
+    var corps = RIA.sheet("Commande #" + o.id,
+      '<div class="chip-row">' + RIA.pill(e.lbl, e.pill) + RIA.chip(o.mode === "livraison" ? "Livraison" : "Retrait", o.mode === "livraison" ? I.camion : I.horloge) + RIA.chip(o.heure, I.horloge) + '</div>' +
+      '<div class="lines">' + lignes + (o.frais ? ligne("Frais de livraison", o.km + " km par la route", eur(o.frais)) : "") + ligne("Total", o.paiement || "paiement à définir", eur(o.total + (o.frais || 0))) +
+      '</div>' + '<div class="acctinfo">' + acctrow("Client", o.client || "non communiqué") + acctrow("Heure annoncée", o.prete || "—") + (o.adresse ? acctrow("Adresse", o.adresse) : "") +
+        acctrow("Ticket", o.imprime ? "imprimé" : "pas encore imprimé") + (o.motif ? acctrow("Motif", o.motif) : "") + '</div>' + RIA.note(esc(D.regles.paiement)) +
+      '<div class="ctabar"><button class="cta" id="shCuisine">' + svg(I.feu) + 'Suivre en cuisine</button></div>'
+    );
+    surClic("shCuisine", function(){
+      RIA.closeSheet();
+      RIA.toast("Commande #" + o.id + " — écran cuisine");
+      RIA.openApp("cuisine");
     });
-  });
-
-  /* import de carte : photo / PDF / site / saisie, puis brouillon IA */
-  on(root, '[data-import]', 'click', () => {
-    const sources = [
-      { id:'photo', nom:'Photo de la carte', ic:'camera', d:'L’IA lit l’image et reconstruit les catégories.' },
-      { id:'pdf',   nom:'PDF',               ic:'doc',    d:'Découpage automatique par page et par rubrique.' },
-      { id:'site',  nom:'Site du restaurant',ic:'cloud',  d:'Lecture de la page menu et des prix affichés.' },
-      { id:'main',  nom:'Saisie à la main',  ic:'edit',   d:'Vous dictez, l’IA met en forme.' }
-    ];
-    api.sheet('Importer une carte', `
-      <div class="list" data-sources>
-        ${sources.map(s => `<button class="listrow" data-src="${s.id}"><span class="ic">${ico(s.ic)}</span>
-          <span class="tx"><b>${esc(s.nom)}</b><span>${esc(s.d)}</span></span>${ico('chev','chev')}</button>`).join('')}
-      </div>
-      <div class="gr-import" data-import-zone hidden>
-        <span class="eyebrow" data-etape>Lecture…</span>
-        <div class="bar"><i data-prog style="width:0%"></i></div>
-        <div class="gr-brouillon" data-brouillon></div>
-      </div>
-      <p class="gr-mini">L’IA crée un brouillon de catégories, produits, formules, tailles, boissons, suppléments et prix. Rien n’est publié sans votre validation.</p>`,
-    corps => {
-      on(corps, '[data-src]', 'click', (ev2, b2) => {
-        const src = sources.find(s => s.id === b2.dataset.src);
-        corps.querySelector('[data-sources]').hidden = true;
-        const zone = corps.querySelector('[data-import-zone]');
-        zone.hidden = false;
-        const prog = zone.querySelector('[data-prog]');
-        const etape = zone.querySelector('[data-etape]');
-        const brouillon = zone.querySelector('[data-brouillon]');
-        const etapes = [
-          [18, src.nom + ' — lecture en cours'],
-          [42, 'Détection des catégories'],
-          [64, 'Extraction des prix et des tailles'],
-          [86, 'Reconstruction des formules et suppléments'],
-          [100, 'Brouillon prêt']
-        ];
-        const pas = reduit() ? 160 : 620;
-        etapes.forEach((e, i) => apres(() => {
-          prog.style.width = e[0] + '%';
-          etape.textContent = e[1];
-          if (e[0] === 100){
-            brouillon.innerHTML = `
-              <div class="note"><b>Brouillon IA — à valider.</b> 4 catégories, 9 produits, 12 suppléments détectés. Deux prix restent à confirmer.</div>
-              <div class="list">
-                ${S.menu.map(c => `<div class="row between"><span>${esc(c.nom)}</span><span class="chip acc">${c.items.length} produits</span></div>`).join('')}
-                <div class="row between"><span>Pizza merguez</span><span class="chip warn">prix illisible</span></div>
-              </div>
-              <div class="grid2" style="margin-top:10px">
-                <button class="cta sm ghost" style="width:100%" data-corriger>Corriger 2 prix</button>
-                <button class="cta sm" style="width:100%" data-publier>Publier</button>
-              </div>`;
-          }
-        }, pas*(i+1)));
-      });
-      on(corps, '[data-corriger]', 'click', () => api.toast('Les deux prix douteux sont signalés en rouge dans la carte, l’IA ne les propose pas tant qu’ils ne sont pas confirmés.'));
-      on(corps, '[data-publier]', 'click', () => { api.fermerSheet(); api.toast('Carte publiée — l’IA travaille sur la nouvelle version dès le prochain appel.'); vibrer(10); });
-    });
-  });
-}
-
-/* ========================================================================
-   ONGLET 4 — VOIX
-   ===================================================================== */
-const TONS = { chaleureux:'Chaleureux', dynamique:'Dynamique', professionnel:'Professionnel', quartier:'De quartier' };
-const VITESSES = { lente:'Lente', normale:'Normale', rapide:'Rapide' };
-const LANGUES = ['Français','Arabe','Anglais','Espagnol','Turc'];
-
-function vueVoix(){
-  const v = S.voix;
-  return `
-  <section class="sec stagger">
-    <div class="card gr-apercu" data-apercu>
-      <span class="eyebrow">Aperçu de la phrase d’accueil</span>
-      <p class="serif gr-phrase" data-phrase>« ${esc(phraseAccueil())} »</p>
-      <div class="seg">
-        <span class="chip acc">${esc(v.prenom)}</span>
-        <span class="chip">${esc(TONS[v.ton])}</span>
-        <span class="chip">${esc(VITESSES[v.vitesse])}</span>
-        ${v.langues.map(l => `<span class="chip info">${esc(l)}</span>`).join('')}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="field"><span class="lbl">Prénom de l’assistant</span>
-        <input type="text" value="${esc(v.prenom)}" data-prenom maxlength="14"></div>
-      <div class="field" style="margin-top:11px"><span class="lbl">Ton</span>
-        <div class="seg">${Object.keys(TONS).map(k => `<button data-ton="${k}" aria-pressed="${k === v.ton}">${esc(TONS[k])}</button>`).join('')}</div></div>
-      <div class="field" style="margin-top:11px"><span class="lbl">Vitesse</span>
-        <div class="seg">${Object.keys(VITESSES).map(k => `<button data-vitesse="${k}" aria-pressed="${k === v.vitesse}">${esc(VITESSES[k])}</button>`).join('')}</div></div>
-      <div class="field" style="margin-top:11px"><span class="lbl">Langues actives</span>
-        <div class="seg">${LANGUES.map(l => `<button data-langue="${esc(l)}" aria-pressed="${v.langues.includes(l)}">${esc(l)}</button>`).join('')}</div></div>
-      <div class="field" style="margin-top:11px"><span class="lbl">Phrase d’accueil</span>
-        <textarea rows="3" data-accueil>${esc(v.accueil)}</textarea></div>
-      <p class="gr-mini">${esc(REGLES.rgpd)}</p>
-    </div>
-
-    <div class="sec">
-      <div class="sec-head"><h3>Prononciations</h3>
-        <button class="cta sm ghost" data-prono>${ico('plus')}Ajouter</button></div>
-      <div class="list">
-        ${v.prononciations.map(p => `<div class="row between"><span>${esc(p.mot)}</span>
-          <span class="mono">« ${esc(p.dit)} »</span></div>`).join('')}
-      </div>
-    </div>
-
-    <div class="card gr-signature">
-      <div class="row between">
-        <div><b>Voix signature</b><div class="gr-mini">L’IA génère une voix proche de votre timbre.</div></div>
-        <span class="chip acc">${ico('lock')}premium</span>
-      </div>
-      <div class="gr-lecture" data-lecture hidden>
-        <div class="bar"><i data-lect style="width:0%"></i></div>
-        <p class="gr-mini" data-lecttxt>Lecture du texte guidé…</p>
-      </div>
-      <button class="row between gr-consent" data-consent aria-pressed="${S.consentVoix}" style="width:100%;text-align:left">
-        <span class="gr-mini" style="flex:1">Je confirme posséder cette voix et en autoriser l’usage.</span>
-        <span class="switch" role="switch" aria-checked="${S.consentVoix}"></span>
-      </button>
-      <button class="cta ghost" data-lire ${S.consentVoix ? '' : 'disabled'}>${ico('mic')}Lire le texte guidé (1 min)</button>
-      ${S.voixPrete ? '<div class="note ok"><b>Voix signature prête.</b> Elle attend un appel test avant d’être activée.</div>' : ''}
-      <p class="gr-mini">Même avec une voix signature, l’assistant annonce au client qu’il est automatisé.</p>
-    </div>
-
-    <div class="card">
-      <div class="gr-wave gr-wave-sm" data-onde2>${Array.from({ length:22 }, (_, i) => `<i style="animation-delay:${(i*53)%560}ms"></i>`).join('')}</div>
-      <p class="serif gr-defile" data-defile>&nbsp;</p>
-      <button class="cta" data-test>${ico('phoneIn')}Appel test sur mon vrai menu</button>
-      <p class="gr-mini">Un appel test sur le vrai menu est obligatoire avant activation. Un changement de voix ne s’applique jamais au milieu d’un appel : il prend effet au prochain appel entrant.</p>
-      ${S.testValide ? '<div class="note ok"><b>Appel test validé.</b> La voix peut être activée.</div>' : ''}
-      <button class="cta ok" data-activer ${S.testValide ? '' : 'disabled'}>${ico('check')}Activer cette voix</button>
-    </div>
-  </section>`;
-}
-
-function monterVoix(root, api){
-  const phrase = root.querySelector('[data-phrase]');
-  const apercu = root.querySelector('[data-apercu]');
-
-  function rafraichir(){
-    phrase.textContent = '« ' + phraseAccueil() + ' »';
-    apercu.classList.remove('is-flash');
-    void apercu.offsetWidth;                    // relance l'animation
-    apercu.classList.add('is-flash');
+    return corps;
   }
 
-  root.querySelector('[data-prenom]').addEventListener('input', ev => {
-    S.voix.prenom = ev.target.value.trim() || 'Sofiane';
-    rafraichir();
-  });
-  root.querySelector('[data-accueil]').addEventListener('input', ev => {
-    S.voix.accueil = ev.target.value;
-    rafraichir();
-  });
+  /* =======================================================================
+     2) APPELS — l'appel en direct rejoué, puis le journal
+     ======================================================================= */
+  var PAS = 210;                 /* millisecondes par seconde d'appel simulée */
+  var sec = 0, idx = 0, tid = null, panier = [], confirme = false, fini = false;
 
-  on(root, '[data-ton]', 'click', (ev, b) => {
-    S.voix.ton = b.dataset.ton;
-    root.querySelectorAll('[data-ton]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    rafraichir(); api.toast('Ton « ' + TONS[S.voix.ton] +' » — appliqué au prochain appel entrant.');
-  });
-  on(root, '[data-vitesse]', 'click', (ev, b) => {
-    S.voix.vitesse = b.dataset.vitesse;
-    root.querySelectorAll('[data-vitesse]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    rafraichir();
-  });
-  on(root, '[data-langue]', 'click', (ev, b) => {
-    const l = b.dataset.langue, i = S.voix.langues.indexOf(l);
-    if (i >= 0 && S.voix.langues.length > 1) S.voix.langues.splice(i, 1);
-    else if (i < 0) S.voix.langues.push(l);
-    else return api.toast('Au moins une langue doit rester active.');
-    rendre(api);
-  });
+  function renderAppelsScreen(){
+    RIA.renderNavbar("appels");
+    var journal = D.appels.map(function(a, i){
+      var s = ISSUES[a.issue];
+      return '<div class="jcard" data-a="' + i + '">' + '<div class="jcard-info"><div class="jcard-who">' + esc(a.num) + '</div>' + '<div class="jcard-meta">' + RIA.pill(s.lbl, s.pill) +
+        '<span class="jcard-date">' + esc(a.h + " · " + RIA.dur(a.duree)) + '</span></div></div>' + '<span class="jcard-amt">' + (a.montant ? eur(a.montant) : "—") + '</span>' +
+        '<div class="jcard-actions"><button class="jactionbtn" data-voir="' + i + '">' + svg(I.oeil) + '</button></div>' + '</div>';
+    }).join("");
 
-  /* ajout d'une prononciation */
-  on(root, '[data-prono]', 'click', () => {
-    api.sheet('Nouvelle prononciation', `
-      <div class="field"><span class="lbl">Mot écrit</span><input type="text" data-mot placeholder="Bicky"></div>
-      <div class="field"><span class="lbl">Ce que l’IA doit dire</span><input type="text" data-dit placeholder="bi-ki"></div>
-      <button class="cta" data-ok>Enregistrer</button>`, corps => {
-      on(corps, '[data-ok]', 'click', () => {
-        const mot = corps.querySelector('[data-mot]').value.trim();
-        const dit = corps.querySelector('[data-dit]').value.trim();
-        if (!mot || !dit) return api.toast('Renseignez le mot et sa prononciation.');
-        S.voix.prononciations.push({ mot, dit });
-        api.fermerSheet(); api.toast('« ' + mot + ' » sera prononcé « ' + dit + ' ».');
-        rendre(api);
-      });
+    RIA.setContent(
+      topbar("Appel en direct", "Appels",
+        '<span class="chip" id="chrono">00:00</span>' + '<span class="chip" id="cout">' + esc(eur(0)) + '</span>' + '<span class="pill attente" id="etatAppel">En ligne</span>') + '<div class="lines" id="panier"></div>' +
+      '<div class="thread" id="thread"></div>' + fsection("Journal des appels") + '<div class="jrows">' + journal + '</div>'
+    );
+
+    surTous($("content"), ".jcard", function(){ sheetAppel(D.appels[this.dataset.a]); });
+    surTous($("content"), ".jactionbtn", function(ev){
+      ev.stopPropagation();
+      sheetAppel(D.appels[this.dataset.voir]);
     });
-  });
 
-  /* consentement obligatoire de la voix signature */
-  on(root, '[data-consent]', 'click', () => {
-    S.consentVoix = !S.consentVoix;
-    if (!S.consentVoix) S.voixPrete = false;
-    vibrer(6); rendre(api);
-  });
+    RIA.actionbar(
+      '<div class="quickreplies chip-row">' + '<button class="qreply" data-q="rejouer">Rejouer l\'appel</button>' + '<button class="qreply" data-q="transfert">Transférer au restaurant</button>' +
+        '<button class="qreply" data-q="commande">Voir la commande</button>' + '</div>' + '<div class="composer"><input class="field" id="noteInput" placeholder="Note interne sur cet appel…">' +
+        '<button class="sendb" id="noteSend">' + svg(I.envoi) + '</button></div>'
+    );
+    surTous($("actionbar"), ".qreply", function(){
+      var q = this.dataset.q;
+      if (q === "rejouer") jouerAppel();
+      else if (q === "transfert") transferer();
+      else sheetCommande(commande(248));
+    });
+    surClic("noteSend", envoyerNote);
+    $("noteInput").addEventListener("keydown", function(e){ if (e.key === "Enter") envoyerNote(); });
 
-  on(root, '[data-lire]', 'click', (ev, b) => {
-    if (!S.consentVoix) return api.toast('Le consentement est obligatoire avant l’enregistrement.');
-    const zone = root.querySelector('[data-lecture]');
-    const barre = zone.querySelector('[data-lect]');
-    const txt = zone.querySelector('[data-lecttxt]');
-    zone.hidden = false; b.disabled = true;
-    const lignes = [
-      'Bonsoir, vous êtes bien au Comptoir, je vous écoute.',
-      'Nous sommes ouverts du lundi au dimanche, midi et soir.',
-      'Le tacos M vient avec des frites et une boisson.',
-      'Je vous envoie le récapitulatif par SMS tout de suite.'
-    ];
-    const pas = reduit() ? 220 : 1500;
-    lignes.forEach((l, i) => apres(() => {
-      barre.style.width = Math.round((i+1)/lignes.length*100) + '%';
-      txt.textContent = '« ' + l + ' »';
-    }, pas*(i+1)));
-    apres(() => { S.voixPrete = true; api.toast('Voix signature générée — un appel test reste obligatoire.'); rendre(api); }, pas*(lignes.length+1));
-  });
+    jouerAppel();
+  }
 
-  /* appel test : onde + phrase d'accueil qui défile */
-  on(root, '[data-test]', 'click', (ev, b) => {
-    const onde = root.querySelector('[data-onde2]');
-    const cible = root.querySelector('[data-defile]');
-    const texte = phraseAccueil();
-    const rythme = S.voix.vitesse === 'lente' ? 52 : S.voix.vitesse === 'rapide' ? 20 : 34;
-    b.disabled = true; onde.classList.add('is-on');
-    cible.textContent = '';
-    if (reduit()){
-      cible.textContent = '« ' + texte + ' »';
-      apres(() => { onde.classList.remove('is-on'); S.testValide = true; rendre(api); }, 700);
+  function envoyerNote(){
+    var i = $("noteInput");
+    if (!i || !i.value.trim()) return;
+    addBubble("me", i.value.trim(), false);
+    i.value = "";
+    RIA.toast("Note interne ajoutée à la fiche d'appel.");
+  }
+
+  /* --- bulles, copiées de devis60 (effet d'écriture progressive) --- */
+  function addBubble(role, text, typed){
+    var thread = $("thread");
+    if (!thread) return null;
+    var row = document.createElement("div");
+    row.className = "row " + (role === "me" ? "me" : "bot");
+    var bub = document.createElement("div");
+    bub.className = "bub";
+    row.appendChild(bub);
+    thread.appendChild(row);
+    thread.scrollTop = thread.scrollHeight;
+    if (typed){
+      var i = 0;
+      var step = Math.max(1, Math.round(text.length / 44));
+      var iv = setInterval(function(){
+        if (!document.body.contains(bub)){ clearInterval(iv); return; }
+        i += step;
+        bub.textContent = text.slice(0, i);
+        if (i < text.length){
+          var caret = document.createElement("span");
+          caret.className = "caret";
+          bub.appendChild(caret);
+        }
+        thread.scrollTop = thread.scrollHeight;
+        if (i >= text.length) clearInterval(iv);
+      }, 18);
+    } else {
+      bub.textContent = text;
+    }
+    return row;
+  }
+  function addThinking(){
+    var thread = $("thread");
+    if (!thread) return null;
+    var row = document.createElement("div");
+    row.className = "row bot";
+    row.innerHTML = '<div class="thinkRow"><span class="thinkLogo">' + svg(I.micro) + '</span>' + '<span class="thinkDots">L\'assistant écoute…</span></div>';
+    thread.appendChild(row);
+    thread.scrollTop = thread.scrollHeight;
+    return row;
+  }
+  function addFact(icone, titre, sous, bouton, fn){
+    var thread = $("thread");
+    if (!thread) return;
+    var row = document.createElement("div");
+    row.className = "row bot";
+    row.innerHTML = factcard("", icone, titre, sous, bouton);
+    thread.appendChild(row);
+    if (bouton){
+      var b = row.querySelector(".fc-btn");
+      if (b) b.addEventListener("click", fn);
+    }
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function majPanier(){
+    var p = $("panier");
+    if (!p) return;
+    if (!panier.length){
+      p.innerHTML = '<div class="empty">Panier vide — l\'IA construit la commande en silence pendant qu\'elle parle.</div>';
       return;
     }
-    let i = 0;
-    const stop = chaque(() => {
-      i++;
-      cible.textContent = '« ' + texte.slice(0, i) + (i < texte.length ? ' ▍' : ' »');
-      if (i >= texte.length){
-        stop(); onde.classList.remove('is-on');
-        S.testValide = true; vibrer(10);
-        api.toast('Appel test réussi sur le vrai menu — la voix peut être activée.');
-        apres(() => rendre(api), 900);
-      }
-    }, rythme);
-  });
-
-  on(root, '[data-activer]', 'click', () => {
-    if (!S.testValide) return;
-    api.notif({ titre:'Voix activée', texte:S.voix.prenom + ' · ' + TONS[S.voix.ton] + ' · ' + VITESSES[S.voix.vitesse] + ' — effective au prochain appel.',
-                couleur:'#ddb84a', glyph:'mic' });
-    api.toast('Le changement ne s’applique jamais au milieu d’un appel.');
-  });
-}
-
-/* ========================================================================
-   ONGLET 5 — COMPTE : horaires, livraison, abonnement, règles
-   ===================================================================== */
-function vueCompte(){
-  const f = forfaitDe(S.forfait);
-  const ratio = f.minutes ? S.minutes / f.minutes : 0;
-  const liv = RESTO.livraison;
-
-  return `
-  <section class="sec stagger">
-    <div class="card">
-      <div class="sec-head"><h3>Horaires</h3><span class="eyebrow">3 calendriers distincts</span></div>
-      <div class="list">
-        ${RESTO.horaires.map(h => `<div class="row between"><span>${esc(h.jours)}</span>
-          <span class="mono">${esc(h.creneaux)}</span></div>`).join('')}
-      </div>
-      <div class="grid3 gr-cal">
-        <div class="stat"><b class="num">11h30</b><span>ouverture physique</span></div>
-        <div class="stat"><b class="num">−${RESTO.derniereCommande} min</b><span>dernière commande par téléphone</span></div>
-        <div class="stat"><b class="num">−45 min</b><span>dernière livraison</span></div>
-      </div>
-      <p class="gr-mini">L’ouverture physique, la prise de commande par téléphone et la livraison sont réglées séparément. Passé la dernière commande, l’IA annonce la fermeture et propose le service suivant.</p>
-      <div class="list" style="margin-top:9px">
-        ${RESTO.exceptions.map(x => `<div class="row between"><span class="chip warn">${esc(x.date)}</span>
-          <span class="gr-mini">${esc(x.regle)}</span></div>`).join('')}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="sec-head"><h3>Zone de livraison</h3><span class="chip info">${liv.delai} min annoncées</span></div>
-      <div class="grid2">
-        <div class="stat"><b class="num">${liv.rayonKm} km</b><span>rayon par la route</span></div>
-        <div class="stat"><b class="num">${fmt.euro(liv.minimum)}</b><span>minimum de commande</span></div>
-        <div class="stat"><b class="num">${fmt.euro(liv.frais)}</b><span>frais de livraison</span></div>
-        <div class="stat"><b style="font-size:14px">${esc(liv.paiement)}</b><span>paiement</span></div>
-      </div>
-      <div class="note info"><b>Hors zone, l’IA propose le retrait</b> — elle calcule la distance par la route, vérifie le minimum, les frais et le délai avant d’enregistrer.</div>
-      <div class="note">${esc(REGLES.paiement)}</div>
-    </div>
-
-    <div class="card gr-abo">
-      <div class="row between">
-        <div class="gr-jauge">${anneau(ratio, { taille:78, couleur:ratio > .8 ? 'var(--warn)' : 'var(--accent)' })}
-          <span class="num" data-jauge-txt>${Math.round(ratio*100)}%</span></div>
-        <div style="flex:1">
-          <b>Forfait ${esc(f.nom)} — ${fmt.euroCourt(f.prix)}/mois</b>
-          <div class="gr-mini"><span class="num" data-min>${S.minutes}</span> / ${f.minutes} minutes ce mois-ci</div>
-          <div class="gr-mini">Dépassement ${(f.depassement/100).toFixed(2).replace('.', ',')} €/min · coût IA 0,12 €/min</div>
-        </div>
-      </div>
-      <div class="gr-seuil"><div class="bar"><i data-barre style="width:${Math.min(100, ratio*100)}%"></i></div><span class="gr-tick"></span></div>
-      <div class="row between gr-mini"><span>0</span><span>alerte 80 %</span><span>${f.minutes} min</span></div>
-      <div class="note warn"><b>Alerte automatique à 80 %.</b> Le service n’est jamais coupé : les minutes en plus sont facturées au tarif de dépassement.</div>
-      <button class="cta sm ghost" data-sim80 style="width:100%">${ico('bell')}Simuler le passage à 80 %</button>
-    </div>
-
-    <div class="sec">
-      <div class="sec-head"><h3>Changer de forfait</h3><span class="eyebrow">§7</span></div>
-      <div class="list">
-        ${FORFAITS.map(x => `
-        <button class="listrow" data-forfait="${x.id}">
-          <span class="ic">${ico(x.id === S.forfait ? 'check' : 'card')}</span>
-          <span class="tx"><b>${esc(x.nom)} · ${x.prix ? fmt.euroCourt(x.prix) + '/mois' : 'sans abonnement'}</b>
-            <span>${x.minutes ? x.minutes + ' min incluses' : 'à la minute'} · dépassement ${(x.depassement/100).toFixed(2).replace('.', ',')} € · ${esc(x.note)}</span></span>
-          ${x.id === S.forfait ? '<span class="chip acc">actuel</span>' : ico('chev','chev')}
-        </button>`).join('')}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="sec-head"><h3>Comment le forfait est choisi</h3></div>
-      <div class="gr-frise">
-        <div><span class="num">1</span><b>Essai gratuit</b><em>aucun engagement, l’IA décroche déjà</em></div>
-        <div><span class="num">2</span><b>Le vrai volume décide</b><em>les minutes réellement consommées donnent le forfait</em></div>
-        <div><span class="num">3</span><b>Engagement 6 mois</b><em>prélèvement SEPA, facturation à la seconde</em></div>
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-head"><h3>Règles du service</h3></div>
-      <div class="note info">${esc(REGLES.rgpd)}</div>
-      <div class="note">${esc(REGLES.confirmation)}</div>
-      <div class="note warn">${esc(REGLES.modification)}</div>
-      <div class="note bad">${esc(REGLES.paiement)}</div>
-      <div class="card flat"><span class="eyebrow">Renvoi d’appel</span>
-        <p class="gr-mini">${esc(REGLES.renvoi)}</p></div>
-    </div>
-  </section>`;
-}
-
-function monterCompte(root, api){
-  const f = forfaitDe(S.forfait);
-
-  /* animation d'entrée de l'anneau et du compteur de minutes */
-  const cercle = root.querySelector('.gr-jauge svg circle:last-of-type');
-  const txt = root.querySelector('[data-jauge-txt]');
-  const minNode = root.querySelector('[data-min]');
-  if (cercle && !reduit()){
-    const dash = Number(cercle.getAttribute('stroke-dasharray'));
-    const fin = cercle.getAttribute('stroke-dashoffset');
-    cercle.setAttribute('stroke-dashoffset', dash);
-    apres(() => { cercle.style.transition = 'stroke-dashoffset .9s var(--ease)'; cercle.setAttribute('stroke-dashoffset', fin); }, 40);
+    var total = 0;
+    var html = panier.map(function(l, i){
+      total += l.prix;
+      var sous = [l.opt, l.sup ? "+ " + l.sup : ""].filter(function(x){ return !!x; }).join(" · ");
+      return ligne(l.q + "× " + l.nom, sous, eur(l.prix), i === panier.length - 1 && !confirme);
+    }).join("");
+    p.innerHTML = html + ligne("Total", confirme ? "confirmé par le client" : "en cours de construction", eur(total));
   }
-  compte(minNode, S.minutes, { duree:800 });
+  function majEntete(){
+    var ch = $("chrono"), co = $("cout"), et = $("etatAppel");
+    if (ch) ch.textContent = RIA.chrono(sec);
+    if (co) co.textContent = eur(coutIA(sec));
+    if (!et) return;
+    et.className = "pill " + (fini ? "signe" : confirme ? "signe" : "attente");
+    et.textContent = fini ? "Confirmée" : confirme ? "Validation client" : "En ligne";
+  }
 
-  /* alerte à 80 % — jamais de coupure de service */
-  on(root, '[data-sim80]', 'click', () => {
-    const cible = Math.round(f.minutes * .8);
-    const barre = root.querySelector('[data-barre]');
-    barre.style.width = '80%';
-    if (cercle){
-      const dash = Number(cercle.getAttribute('stroke-dasharray'));
-      cercle.style.transition = 'stroke-dashoffset .9s var(--ease), stroke .4s ease';
-      cercle.setAttribute('stroke-dashoffset', (dash*0.2).toFixed(1));
-      cercle.setAttribute('stroke', 'var(--warn)');
+  function jouerAppel(){
+    if (tid){ clearInterval(tid); tid = null; }
+    sec = 0; idx = 0; panier = []; confirme = false; fini = false;
+    var thread = $("thread");
+    if (!thread) return;
+    thread.innerHTML = "";
+    majPanier(); majEntete();
+    addThinking();
+    tid = RIA.every(tickAppel, PAS);
+  }
+
+  function tickAppel(){
+    if (!$("thread")){ clearInterval(tid); tid = null; return; }
+    sec++;
+    while (idx < D.appel.length && D.appel[idx].t <= sec){
+      jouerEntree(D.appel[idx]);
+      idx++;
     }
-    compte(txt, 80, { duree:900, format:v => Math.round(v) + '%' });
-    compte(minNode, cible, { duree:900 });
-    S.minutes = cible;
-    vibrer(12);
-    api.notif({ titre:'80 % de vos minutes consommées', texte:cible + ' min sur ' + f.minutes + ' — le service continue, le dépassement est facturé ' + (f.depassement/100).toFixed(2).replace('.', ',') + ' €/min.',
-                couleur:'#e9a33d', glyph:'bell' });
-  });
+    majEntete();
+    if (idx >= D.appel.length && sec > D.appel[D.appel.length - 1].t + 2){
+      clearInterval(tid); tid = null;
+    }
+  }
 
-  /* changement de forfait */
-  on(root, '[data-forfait]', 'click', (ev, b) => {
-    const x = FORFAITS.find(y => y.id === b.dataset.forfait);
-    if (x.id === S.forfait) return api.toast('C’est déjà votre forfait.');
-    api.sheet('Passer au forfait ' + x.nom, `
-      <div class="grid2">
-        <div class="stat"><b class="num">${x.prix ? fmt.euroCourt(x.prix) : '0 €'}</b><span>par mois</span></div>
-        <div class="stat"><b class="num">${x.minutes || '—'}</b><span>minutes incluses</span></div>
-        <div class="stat"><b class="num">${(x.depassement/100).toFixed(2).replace('.', ',')} €</b><span>par minute au-delà</span></div>
-        <div class="stat"><b style="font-size:14px">${esc(x.note)}</b><span>coût et commission</span></div>
-      </div>
-      <div class="note"><b>L’essai gratuit mesure d’abord le vrai volume.</b> Le forfait est recommandé à partir des minutes réellement consommées, puis l’engagement court sur 6 mois.</div>
-      <div class="note info">Changement effectif au prochain cycle. Le service n’est jamais interrompu pendant la bascule.</div>
-      <button class="cta" data-confirmer>Confirmer le passage au forfait ${esc(x.nom)}</button>`, corps => {
-      on(corps, '[data-confirmer]', 'click', () => {
-        S.forfait = x.id;
-        S.minutes = Math.min(S.minutes, x.minutes || S.minutes);
-        api.fermerSheet(); vibrer(10);
-        api.toast('Forfait ' + x.nom + ' enregistré — effectif au prochain cycle.');
-        rendre(api);
+  function jouerEntree(e){
+    var thread = $("thread");
+    var attente = thread.querySelector(".thinkRow");
+    if (attente && attente.parentNode) attente.parentNode.remove();
+
+    if (e.qui === "bot"){ addBubble("bot", e.txt, true); }
+    else if (e.qui === "me"){
+      addBubble("me", e.txt, false);
+      if (e.panier){ panier.push({ q:e.panier.q, nom:e.panier.nom, opt:e.panier.opt, prix:e.panier.prix }); majPanier(); }
+      if (e.maj && panier.length){
+        var l = panier[panier.length - 1];
+        if (e.maj.opt) l.opt = e.maj.opt;
+        if (e.maj.sup) l.sup = e.maj.sup;
+        if (e.maj.prix) l.prix = e.maj.prix;
+        majPanier();
+      }
+      if (e.confirme){ confirme = true; majPanier(); }
+      if (!e.confirme) addThinking();
+    } else {
+      if (e.sms){
+        addFact(I.sms, "Récapitulatif SMS envoyé", "Le client peut répondre OK ou MODIF", "Voir le SMS", sheetSms);
+        addBubble("bot", D.sms, false);
+      } else if (e.fin){
+        fini = true;
+        addFact(I.check, e.txt, "Le ticket part en cuisine après confirmation", "Voir la commande", function(){
+          sheetCommande(commande(248));
+        });
+        RIA.toast("Commande #248 confirmée — envoyée en cuisine.");
+      } else {
+        addFact(I.check, e.txt, "Panier recalculé sans relancer la commande", "", null);
+      }
+      majPanier();
+    }
+  }
+
+  function transferer(){
+    if (tid){ clearInterval(tid); tid = null; }
+    addFact(I.transfert, "Transfert vers le restaurant", "L'IA s'excuse, passe l'appel et n'insiste pas.", "", null);
+    RIA.toast("Appel transféré — " + D.regles.transfert.slice(0, 60) + "…");
+    fini = true; majEntete();
+  }
+
+  function sheetSms(){
+    var corps = RIA.sheet("Récapitulatif SMS",
+      '<div class="chip-row">' + RIA.chip("06 •• •• •• 47", I.sms) + RIA.chip("19:41", I.horloge) + '</div>' + '<div class="lines"><div class="row bot"><div class="bub" id="smsBub"></div></div></div>' +
+      RIA.note(esc(D.regles.confirmation)) + RIA.note(esc(D.regles.modification)) + '<div class="ctabar"><button class="cta" id="smsRenv">' + svg(I.sms) + 'Renvoyer le récapitulatif</button></div>');
+    corps.querySelector("#smsBub").textContent = D.sms;
+    surClic("smsRenv", function(){
+      RIA.toast("Récapitulatif renvoyé — l'ancien est invalidé, pas de seconde commande.");
+      RIA.closeSheet();
+    });
+  }
+
+  function sheetAppel(a){
+    if (!a) return;
+    var s = ISSUES[a.issue];
+    var o = a.cmd ? commande(a.cmd) : null;
+    var lignes = o ? o.lignes.map(function(l){
+      var sous = [l.opt, l.sup ? "+ " + l.sup : "", l.dem].filter(function(x){ return !!x; }).join(" · ");
+      return ligne(l.q + "× " + l.nom, sous, eur(l.prix));
+    }).join("") : "";
+
+    RIA.sheet("Appel de " + a.h,
+      '<div class="chip-row">' + RIA.pill(s.lbl, s.pill) + RIA.chip(RIA.dur(a.duree), I.horloge) + RIA.chip(a.num, I.phone) + '</div>' + '<div class="acctinfo">' + acctrow("Heure", a.h) +
+        acctrow("Durée", RIA.dur(a.duree)) + acctrow("Coût IA", eur(coutIA(a.duree))) + acctrow("Issue", s.lbl) + (a.cmd ? acctrow("Commande", "#" + a.cmd) : "") + (a.info ? acctrow("Détail", a.info) : "") + '</div>' +
+      (lignes ? '<div class="lines">' + lignes + ligne("Total", o.paiement || "", eur(o.total + (o.frais || 0))) + '</div>' : "") + (a.issue === "transfert" ? RIA.note(esc(D.regles.transfert)) : "") +
+      (a.issue === "expiree" ? RIA.note(esc(D.regles.confirmation)) : "") + RIA.note(esc(D.regles.rgpd)) +
+      (o ? '<div class="ctabar"><button class="cta" id="apCmd">' + svg(I.feu) + 'Ouvrir la commande #' + o.id + '</button></div>' : "")
+    );
+    if (o) surClic("apCmd", function(){ sheetCommande(o); });
+  }
+
+  /* =======================================================================
+     3) MENU — catégories, produits, règles posées par l'IA
+     ======================================================================= */
+  function renderMenuScreen(){
+    RIA.renderNavbar("menu");
+    var cat = D.menu[menuCat];
+    var rupt = 0;
+    D.menu.forEach(function(c){ c.items.forEach(function(it){ if (!it.dispo) rupt++; }); });
+
+    var cartes = cat.items.map(function(it){
+      var nbSup = it.sup.filter(function(s){ return s.dispo; }).length;
+      return '<div class="card" data-p="' + esc(it.id) + '"><div class="row1"><div>' + '<div class="who">' + esc(it.nom) + '</div>' + '<div class="job">' + esc(it.inclus || it.prec || "sans inclusion") + '</div></div>' +
+        '<div class="amtwrap"><span class="amount">' + eur(it.prix) + '</span></div></div>' + '<div class="row2"><span class="date">' + it.obl.length + ' choix · ' + nbSup + ' suppl.</span>' +
+        RIA.pill(it.dispo ? "Disponible" : "En rupture", it.dispo ? "signe" : "refuse") + '</div></div>';
+    }).join("");
+
+    RIA.setContent(
+      topbar("Carte", "Menu intelligent",
+        RIA.chip(D.menu.length + " cat.", I.carte) + RIA.chip(rupt + " rupture" + (rupt > 1 ? "s" : ""), I.alerte)) +
+      tabs(D.menu.map(function(c, i){ return { id:String(i), lbl:c.cat, n:c.items.length }; }), String(menuCat)) + '<div class="list">' + cartes + '</div>' +
+      RIA.note("L'IA pose les choix obligatoires dans l'ordre de la fiche produit, propose les suppléments disponibles, puis lit le récapitulatif. " + esc(D.regles.allergenes))
+    );
+
+    surTabs(function(id){ menuCat = parseInt(id, 10); renderMenuScreen(); });
+    surTous($("content"), ".card", function(){ sheetProduit(produit(this.dataset.p)); });
+
+    RIA.actionbar(
+      '<div class="ctabar">' + '<button class="cta" id="btnImport">' + svg(I.import) + 'Importer une carte</button>' + '<div class="secrow">' + '<button class="sec" id="btnRupt">' + svg(I.alerte) + 'Ruptures</button>' +
+          '<button class="sec" id="btnTout">' + svg(I.check) + 'Tout remettre</button>' + '</div>' + '</div>'
+    );
+    surClic("btnImport", sheetImport);
+    surClic("btnRupt", sheetRuptures);
+    surClic("btnTout", function(){
+      D.menu.forEach(function(c){ c.items.forEach(function(it){ it.dispo = true; }); });
+      renderMenuScreen();
+      RIA.toast("Tous les produits sont de nouveau proposés par l'IA.");
+    });
+  }
+
+  function sheetProduit(it){
+    if (!it) return;
+    var obl = it.obl.length ? it.obl.map(function(o, i){
+      var borne = o.min === o.max ? ("exactement " + o.min) : (o.min + " à " + o.max);
+      return ligne((i + 1) + ". " + o.nom, o.choix, borne);
+    }).join("") : '<div class="empty">Aucun choix obligatoire : l\'IA enregistre directement.</div>';
+
+    var sup = it.sup.length ? it.sup.map(function(s){
+      return ligne(s.nom, s.dispo ? "proposé par l'IA" : "en rupture, non proposé", s.prix ? "+" + eur(s.prix) : "offert");
+    }).join("") : '<div class="empty">Aucun supplément sur ce produit.</div>';
+
+    var dem = (it.dem || "").split(" · ").filter(function(x){ return !!x; })
+      .map(function(x){ return RIA.chip(x); }).join("");
+
+    RIA.sheet(it.nom,
+      '<div class="pricecard"><div class="label">Prix carte</div><div class="price">' + eur(it.prix) + '</div>' + (it.inclus ? '<div class="gain">' + svg(I.check) + esc(it.inclus) + '</div>' : '') + '</div>' +
+      fsection("Choix obligatoires") + '<div class="lines">' + obl + '</div>' + RIA.note("L'IA pose les questions <b>dans cet ordre</b> et ne valide pas tant que les minimums ne sont pas atteints.") +
+      fsection("Suppléments") + '<div class="lines">' + sup + '</div>' + fsection("Précisions") + '<div class="acctinfo">' + acctrow("Mentions", it.prec || "aucune mention particulière") +
+        acctrow("Prononciation", it.nom + " — telle qu'annoncée au client") + '</div>' + RIA.note(esc(D.regles.allergenes)) + fsection("Demandes admises") +
+      (dem ? bloc('<div class="chip-row">' + dem + '</div>') : '<div class="empty">Aucune demande particulière déclarée.</div>') +
+      '<div class="ctabar"><button class="cta" id="pDispo">' + svg(it.dispo ? I.alerte : I.check) + (it.dispo ? "Passer en rupture" : "Remettre disponible") + '</button>' +
+        '<div class="secrow"><button class="sec" id="pFerme">' + svg(I.carte) + 'Fermer la fiche</button></div></div>'
+    );
+
+    surClic("pDispo", function(){
+      it.dispo = !it.dispo;
+      RIA.closeSheet();
+      renderMenuScreen();
+      RIA.toast(it.dispo
+        ? it.nom + " est de nouveau proposé dès le prochain appel."
+        : it.nom + " en rupture immédiate : les commandes déjà confirmées ne bougent pas, l'IA propose une alternative.");
+    });
+    surClic("pFerme", RIA.closeSheet);
+  }
+
+  function sheetRuptures(){
+    var rows = [];
+    D.menu.forEach(function(c){
+      c.items.forEach(function(it){
+        if (!it.dispo) rows.push({ nom:it.nom, cat:c.cat, id:it.id });
+        it.sup.forEach(function(s){ if (!s.dispo) rows.push({ nom:s.nom + " (supplément)", cat:it.nom, id:"" }); });
       });
     });
-  });
-}
+    RIA.sheet("Ruptures en cours",
+      (rows.length
+        ? '<div class="jrows">' + rows.map(function(r){
+            return '<div class="jcard"' + (r.id ? ' data-p="' + esc(r.id) + '"' : '') + '>' + '<div class="jcard-info"><div class="jcard-who">' + esc(r.nom) + '</div>' +
+              '<div class="jcard-meta">' + RIA.pill("En rupture", "refuse") + '<span class="jcard-date">' + esc(r.cat) + '</span></div></div>' +
+              (r.id ? '<div class="jcard-actions"><button class="jactionbtn" data-p="' + esc(r.id) + '">' + svg(I.check) + '</button></div>' : '') + '</div>';
+          }).join("") + '</div>'
+        : '<div class="empty">Aucune rupture : toute la carte est proposée par l\'IA.</div>') +
+      RIA.note("La rupture est <b>immédiate pour les nouveaux appels</b>, sans repasser par Publier. Elle ne supprime jamais une commande confirmée et entraîne une proposition d'alternative.")
+    );
+    surTous($("sheet"), ".jcard[data-p]", function(){
+      var it = produit(this.dataset.p);
+      if (!it) return;
+      it.dispo = true;
+      RIA.closeSheet();
+      renderMenuScreen();
+      RIA.toast(it.nom + " est remis en vente.");
+    });
+  }
 
-/* ========================================================================
-   ROUTAGE
-   ===================================================================== */
-const VUES = {
-  service:{ html:vueService, monter:monterService },
-  appels: { html:vueAppels,  monter:monterAppels },
-  menu:   { html:vueMenu,    monter:monterMenu },
-  voix:   { html:vueVoix,    monter:monterVoix },
-  compte: { html:vueCompte,  monter:monterCompte }
-};
+  function sheetImport(){
+    var corps = RIA.sheet("Importer une carte",
+      RIA.note("L'IA lit la source, crée un <b>brouillon</b> de catégories, produits, formules et prix. Rien n'est publié sans votre validation.") + fsection("Source") + bloc('<div class="chips" id="impSrc">' +
+        qchip("photo", "Photo du menu", true) + qchip("pdf", "PDF") + qchip("site", "Site du restaurant") + qchip("saisie", "Saisie à la main") + '</div>') +
+      '<div class="lines" id="impZone"><div class="empty">Choisissez une source puis lancez la lecture.</div></div>' +
+      '<div class="ctabar"><button class="cta" id="impGo">' + svg(I.import) + 'Lire la carte</button></div>');
 
-const SOUS = {
-  service:'Service en cours',
-  appels:'Appels et transcription',
-  menu:'Carte et disponibilités',
-  voix:'Identité de l’assistant',
-  compte:'Horaires et abonnement'
-};
+    var src = "photo";
+    surTous(corps, "#impSrc .qchip", function(){
+      var n = corps.querySelectorAll("#impSrc .qchip");
+      for (var i = 0; i < n.length; i++) n[i].classList.remove("primary");
+      this.classList.add("primary");
+      src = this.dataset.v;
+    });
+    var pret = false;
+    surClic("impGo", function(){
+      if (pret){ RIA.closeSheet(); RIA.toast("Brouillon publié : la nouvelle carte s'applique dès le prochain appel."); return; }
+      var libelles = { photo:"Lecture de la photo…", pdf:"Extraction du PDF…", site:"Analyse du site…", saisie:"Mise en forme de la saisie…" };
+      $("impGo").disabled = true;
+      simuler($("impZone"), libelles[src], function(){
+        var zone = $("impZone");
+        if (!zone) return;
+        zone.innerHTML =
+          ligne("Catégories reconnues", "Tacos · Sandwichs · Pizzas · À côté", String(D.menu.length)) +
+          ligne("Produits", "prix et inclusions repris de la source", String(D.menu[0].items.length + D.menu[1].items.length + D.menu[2].items.length + D.menu[3].items.length)) +
+          ligne("Choix obligatoires", "taille, viande, sauce, base…", "détectés") + ligne("Suppléments", "avec leurs prix", "détectés") + ligne("À vérifier", "prix illisibles sur la source", "2");
+        var b = $("impGo");
+        if (b){ b.disabled = false; b.innerHTML = svg(I.check) + "Publier le brouillon"; }
+        pret = true;
+        RIA.toast("Brouillon prêt — vérifiez avant publication.");
+      });
+    });
+  }
 
-let fenetre = null;
+  /* =======================================================================
+     4) VOIX — identité de l'assistant, aperçu vivant, appel test
+     ======================================================================= */
+  function renderVoixScreen(){
+    RIA.renderNavbar("voix");
 
-/** Re-rend le contenu de l'onglet actif (élément recréé pour rejouer contentFade). */
-function rendre(api){
-  if (!fenetre) return;
-  nettoyerVue();
-  api.fermerSheet();
+    RIA.setContent(
+      topbar("Assistant", "Voix et identité",
+        RIA.chip(voix.prenom, I.micro) + RIA.chip(voix.ton, I.check) + RIA.pill(testVoix ? "Appel test validé" : "Appel test requis", testVoix ? "signe" : "attente")) +
+      (testVoix ? "" : banniere("Un appel test sur votre vrai menu est obligatoire avant activation. Un changement de voix ne s'applique jamais au milieu d'un appel en cours.")) + fsection("Prénom de l'assistant") +
+      '<div class="authfield"><label class="flabel" for="vPrenom">Prénom annoncé au décrochage</label><input class="field" id="vPrenom" value="' + esc(voix.prenom) + '"></div>' + fsection("Ton") +
+      bloc('<div class="chips" id="vTon">' + D.tons.map(function(t){ return qchip(t, t, t === voix.ton); }).join("") + '</div>') + fsection("Vitesse") +
+      bloc('<div class="chips" id="vVit">' + D.vitesses.map(function(v){ return qchip(v, v, v === voix.vitesse); }).join("") + '</div>') + fsection("Langues actives") +
+      bloc('<div class="chips" id="vLang">' + ["Français","Arabe","Anglais","Turc"].map(function(l){
+        return qchip(l, l, voix.langues.indexOf(l) >= 0);
+      }).join("") + '</div>') + fsection("Phrase d'accueil") + '<div class="authfield"><label class="flabel" for="vAcc">Lue au décrochage, avant toute commande</label>' +
+        '<input class="field" id="vAcc" value="' + esc(voix.accueil) + '"></div>' + fsection("Aperçu") + '<div class="lines"><div class="row bot"><div class="bub" id="vApercu"></div></div>' +
+        ligne("Langues actives", voix.langues.join(" · "), voix.ton + " · " + voix.vitesse) + '</div>' + RIA.note(esc(D.regles.rgpd)) + fsection("Voix signature") +
+      bloc(factcard("vSign", I.micro, voix.signature ? "Voix signature active" : "Voix signature désactivée",
+        "Un texte guidé d'une minute, lu par le gérant", voix.signature ? "Désactiver" : "Enregistrer")) +
+      RIA.note("L'activation exige de <b>confirmer posséder cette voix et en autoriser l'usage</b>. Même avec une voix signature, l'assistant annonce toujours qu'il est automatisé.")
+    );
 
-  const vue = VUES[S.onglet];
-  const neuf = el('<main class="content"></main>');
-  neuf.innerHTML = vue.html();
-  fenetre.querySelector('.content').replaceWith(neuf);
+    majApercu();
 
-  const barre = el(navbar(ONGLETS, S.onglet));
-  fenetre.querySelector('.navbar').replaceWith(barre);
+    $("vPrenom").addEventListener("input", function(){ voix.prenom = this.value; majApercu(); });
+    $("vAcc").addEventListener("input", function(){ voix.accueil = this.value; majApercu(); });
 
-  const sous = fenetre.querySelector('.topbar .sub');
-  if (sous) sous.textContent = SOUS[S.onglet];
-
-  vue.monter(neuf, api);
-}
-
-/* ========================================================================
-   MODULE
-   ===================================================================== */
-export default {
-  id:'gerant',
-  nom:'Gérant',
-  sousTitre:'Snack Le Comptoir',
-  accent:'#ddb84a',
-  fond:'linear-gradient(150deg,#f0ce72,#c79a2a)',
-  encre:'#241c05',
-  icone:'mic',
-  badge:2,
-
-  css:`
-  .gr-mini{font-size:11px;color:var(--ink-3);line-height:1.45}
-  .gr-hero{display:grid;gap:11px}
-  .gr-delai{display:flex;align-items:baseline;gap:9px}
-  .gr-delai b{font-family:var(--f-display);font-size:42px;line-height:1;color:var(--accent-bright)}
-  .gr-delai span{font-size:11.5px;color:var(--ink-3);max-width:15ch;line-height:1.3}
-  .gr-dit{transition:border-color .3s ease,background .3s ease}
-  .gr-stats .stat b{transition:color .3s ease}
-  .gr-spark{margin-top:11px;border-top:1px solid var(--rule);padding-top:9px}
-
-  /* ---------------------------- appel en direct ---------------------------- */
-  .gr-live{display:grid;gap:10px}
-  .gr-live-head{margin-top:-4px}
-  .gr-chrono{font-size:16px;color:var(--accent-bright);letter-spacing:.04em}
-  .gr-wave{display:flex;align-items:center;justify-content:space-between;gap:2px;height:34px;
-    border-radius:10px;background:var(--surface);border:1px solid var(--rule);padding:0 9px}
-  .gr-wave i{flex:1;height:3px;border-radius:2px;background:var(--ink-3);opacity:.5;
-    transform-origin:center;transition:opacity .3s ease}
-  .gr-wave.is-on i{opacity:1;background:var(--accent);animation:grOnde .62s var(--ease) infinite alternate}
-  .gr-wave-sm{height:26px}
-  @keyframes grOnde{from{transform:scaleY(1)}to{transform:scaleY(7)}}
-
-  .gr-live-body{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:9px;align-items:start}
-  .gr-flux{max-height:214px;overflow-y:auto;display:grid;gap:7px;padding-right:3px;
-    scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent}
-  .gr-flux::-webkit-scrollbar{width:4px}
-  .gr-flux::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:2px}
-  .gr-bulle{font-size:11.5px;line-height:1.42;padding:7px 10px;border-radius:12px;
-    animation:grBulle .3s var(--ease) both;max-width:96%}
-  .gr-bulle.is-ia{background:var(--accent-soft);border:1px solid var(--rule-strong);color:var(--ink);
-    border-bottom-left-radius:4px;justify-self:start}
-  .gr-bulle.is-cli{background:var(--surface-3);border:1px solid var(--rule);color:var(--ink-2);
-    border-bottom-right-radius:4px;justify-self:end;text-align:right}
-  .gr-bulle.is-sys{display:flex;align-items:center;gap:6px;justify-self:center;max-width:100%;
-    background:transparent;border:1px dashed var(--rule);color:var(--ink-3);font-family:var(--f-mono);
-    font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;padding:5px 9px}
-  .gr-bulle.is-sys svg{width:12px;height:12px;color:var(--accent);flex:none}
-  @keyframes grBulle{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
-
-  .gr-panier{border:1px solid var(--rule);border-radius:12px;background:var(--surface);
-    padding:8px 9px;display:grid;gap:6px;position:sticky;top:0}
-  .gr-pline{display:grid;gap:1px;padding-bottom:5px;border-bottom:1px solid var(--rule)}
-  .gr-pline b{font-size:10.5px;line-height:1.25}
-  .gr-pline span{font-size:9.5px;color:var(--ink-3);line-height:1.3}
-  .gr-pline span.acc{color:var(--accent)}
-  .gr-pline em{font-family:var(--f-mono);font-style:normal;font-size:10px;color:var(--ink-2)}
-  .gr-pline.is-neuf{animation:grPop .42s var(--ease) both}
-  @keyframes grPop{from{opacity:0;transform:translateX(9px)}to{opacity:1;transform:none}}
-  .gr-total{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--ink-3)}
-  .gr-total b{font-size:12.5px;color:var(--accent-bright)}
-
-  .gr-sms{display:flex;gap:9px;padding:9px 11px;border-radius:12px;border:1px solid var(--rule);
-    background:var(--surface-2);animation:grBulle .36s var(--ease) both}
-  .gr-sms svg{width:16px;height:16px;color:var(--info);flex:none;margin-top:2px}
-  .gr-sms pre{margin:0;font-family:var(--f-mono);font-size:10px;line-height:1.5;color:var(--ink-2);
-    white-space:pre-wrap;word-break:break-word}
-  .gr-cout{border-top:1px solid var(--rule);padding-top:8px}
-  .gr-cout .num{color:var(--accent)}
-
-  /* --------------------------------- menu --------------------------------- */
-  .gr-prod{transition:opacity .25s ease,border-color .25s ease}
-  .gr-prod.is-rupture{opacity:.5;border-style:dashed}
-  .gr-prod .tx{text-align:left}
-  .gr-prod .tx b .chip{vertical-align:middle}
-  .gr-import{display:grid;gap:10px}
-  .gr-brouillon{display:grid;gap:9px}
-
-  /* --------------------------------- voix --------------------------------- */
-  .gr-apercu{border-color:var(--rule-strong)}
-  .gr-apercu.is-flash{animation:grFlash .6s var(--ease)}
-  @keyframes grFlash{0%{background:var(--accent-soft)}100%{background:none}}
-  .gr-phrase{font-size:15px;line-height:1.45;margin:7px 0 10px;color:var(--ink)}
-  .gr-signature{display:grid;gap:10px}
-  .gr-consent{gap:11px}
-  .gr-lecture{display:grid;gap:7px}
-  .gr-defile{min-height:44px;font-size:14px;line-height:1.4;color:var(--accent-bright);margin:9px 0 11px}
-  .gr-signature .cta[disabled],.card .cta[disabled]{opacity:.42;pointer-events:none}
-
-  /* -------------------------------- compte -------------------------------- */
-  .gr-cal{margin-top:11px;border-top:1px solid var(--rule);padding-top:10px}
-  .gr-cal .stat b{font-size:15px}
-  .gr-abo{display:grid;gap:10px}
-  .gr-jauge{position:relative;display:grid;place-items:center;flex:none}
-  .gr-jauge span{position:absolute;font-size:13px;color:var(--ink)}
-  .gr-seuil{position:relative}
-  .gr-tick{position:absolute;left:80%;top:-3px;width:1px;height:12px;background:var(--warn)}
-  .gr-frise{display:grid;gap:10px;margin-top:8px}
-  .gr-frise > div{display:grid;grid-template-columns:24px 1fr;gap:3px 10px;align-items:baseline}
-  .gr-frise span{grid-row:span 2;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
-    border:1px solid var(--rule-strong);color:var(--accent);font-size:11px}
-  .gr-frise b{font-size:13px}
-  .gr-frise em{font-style:normal;font-size:11px;color:var(--ink-3)}
-  `,
-
-  monter(win, api){
-    fenetre = win;
-    S.onglet = 'service';
-
-    win.innerHTML =
-      topbar({ titre:'Resto IA · Gérant', sous:SOUS.service,
-               actions:'<span class="chip ok"><i class="dot blink"></i>IA active</span>' }) +
-      '<main class="content"></main>' +
-      navbar(ONGLETS, S.onglet);
-
-    /* navigation entre onglets */
-    win.addEventListener('click', ev => {
-      const b = ev.target.closest('[data-tab]');
-      if (!b || b.dataset.tab === S.onglet) return;
-      S.onglet = b.dataset.tab;
-      vibrer(6);
-      rendre(api);
+    surTous($("content"), "#vTon .qchip", function(){ voix.ton = this.dataset.v; exclusif("#vTon", this); majApercu(); });
+    surTous($("content"), "#vVit .qchip", function(){ voix.vitesse = this.dataset.v; exclusif("#vVit", this); majApercu(); });
+    surTous($("content"), "#vLang .qchip", function(){
+      var l = this.dataset.v, k = voix.langues.indexOf(l);
+      if (k >= 0){
+        if (voix.langues.length === 1){ RIA.toast("Au moins une langue doit rester active."); return; }
+        voix.langues.splice(k, 1); this.classList.remove("primary");
+      } else { voix.langues.push(l); this.classList.add("primary"); }
+      majApercu();
+    });
+    surClic("vSign", function(){
+      if (voix.signature){
+        voix.signature = false;
+        renderVoixScreen();
+        RIA.toast("Voix signature désactivée — retour à la voix préexistante.");
+      } else sheetSignature();
     });
 
-    rendre(api);
-
-    /* nettoyage complet à la fermeture de l'application */
-    return () => { nettoyerVue(); fenetre = null; };
+    RIA.actionbar(
+      '<div class="ctabar">' + '<button class="cta" id="vTest">' + svg(I.phone) + 'Appel test sur mon vrai menu</button>' + '<div class="secrow">' + '<button class="sec" id="vSave">' + svg(I.check) + 'Activer</button>' +
+          '<button class="sec" id="vReset">' + svg(I.horloge) + 'Annuler</button>' + '</div>' + '</div>'
+    );
+    surClic("vTest", sheetTest);
+    surClic("vSave", function(){
+      if (!testVoix){ RIA.toast("Appel test obligatoire avant activation."); return; }
+      RIA.toast("Voix activée. Elle ne s'applique jamais au milieu d'un appel en cours.");
+    });
+    surClic("vReset", function(){
+      voix = { prenom:D.voix.prenom, ton:D.voix.ton, vitesse:D.voix.vitesse,
+               langues:D.voix.langues.slice(0), accueil:D.voix.accueil, signature:D.voix.signature };
+      testVoix = false;
+      renderVoixScreen();
+      RIA.toast("Réglages remis à ceux du business plan.");
+    });
   }
-};
+
+  function exclusif(sel, el){
+    var n = $("content").querySelectorAll(sel + " .qchip");
+    for (var i = 0; i < n.length; i++) n[i].classList.remove("primary");
+    el.classList.add("primary");
+  }
+  function majApercu(){
+    var a = $("vApercu");
+    if (!a) return;
+    a.textContent = (voix.prenom ? voix.prenom + " : " : "") + voix.accueil;
+    var l = $("content").querySelectorAll(".lines .line .v");
+    if (l.length) l[l.length - 1].textContent = voix.ton + " · " + voix.vitesse;
+    var sous = $("content").querySelectorAll(".lines .line .n small");
+    if (sous.length) sous[sous.length - 1].textContent = voix.langues.join(" · ");
+  }
+
+  function sheetSignature(){
+    RIA.sheet("Voix signature",
+      RIA.note("Le gérant lit un texte guidé d'environ une minute. L'IA génère ensuite une voix proche de son timbre, de son rythme et de son style.") + '<div class="lines">' +
+        ligne("Durée d'enregistrement", "texte guidé affiché à l'écran", "≈ 1 min") + ligne("Annonce automatisée", "obligatoire même avec la voix signature", "conservée") +
+        ligne("Option premium", "si le coût variable réduit trop la marge", "à l'étude") + '</div>' + '<div class="acctinfo">' + acctrow("Consentement", "obligatoire avant activation") +
+        acctrow("Titulaire de la voix", D.resto.nom) + '</div>' + RIA.note(esc(D.regles.rgpd)) +
+      '<div class="ctabar"><button class="cta" id="sgOk">' + svg(I.bouclier) + 'Je possède cette voix et j\'en autorise l\'usage</button>' +
+        '<div class="secrow"><button class="sec" id="sgNon">' + svg(I.stop) + 'Annuler</button></div></div>');
+    surClic("sgOk", function(){
+      voix.signature = true;
+      testVoix = false;
+      RIA.closeSheet();
+      renderVoixScreen();
+      RIA.toast("Consentement enregistré — un nouvel appel test est requis.");
+    });
+    surClic("sgNon", RIA.closeSheet);
+  }
+
+  function sheetTest(){
+    RIA.sheet("Appel test",
+      RIA.note("Le test utilise <b>votre vrai menu</b> : l'IA lit l'accueil, prend un Tacos M, pose les choix obligatoires et envoie un récapitulatif fictif.") +
+      '<div class="lines" id="tZone"><div class="empty">Le test dure une trentaine de secondes.</div></div>' + '<div class="ctabar"><button class="cta" id="tGo">' + svg(I.play) + 'Lancer l\'appel test</button></div>');
+    var teste = false;
+    surClic("tGo", function(){
+      if (teste){ RIA.closeSheet(); renderVoixScreen(); return; }
+      $("tGo").disabled = true;
+      simuler($("tZone"), "Appel test en cours…", function(){
+        var z = $("tZone");
+        if (!z) return;
+        z.innerHTML =
+          ligne("Accueil", voix.prenom + " · " + voix.ton + " · " + voix.vitesse, "OK") + ligne("Choix obligatoires", "taille, viande, sauce posées dans l'ordre", "OK") +
+          ligne("Suppléments", "cheddar proposé, boursin ignoré (rupture)", "OK") + ligne("Récapitulatif", "SMS fictif, aucune commande créée", "OK") + ligne("Durée", "cible sous 2 min 30", RIA.dur(118));
+        testVoix = true;
+        var b = $("tGo");
+        if (b){ b.disabled = false; b.innerHTML = svg(I.check) + "Fermer et activer"; }
+        teste = true;
+        RIA.toast("Appel test validé — la voix peut être activée.");
+      });
+    });
+  }
+
+  /* =======================================================================
+     5) COMPTE — horaires, livraison, abonnement, mentions
+     ======================================================================= */
+  function renderCompteScreen(){
+    RIA.renderNavbar("compte");
+    var f = forfait(forfaitSel);
+    var corps = compteTab === "horaires" ? blocHoraires()
+              : compteTab === "livraison" ? blocLivraison()
+              : compteTab === "abo" ? blocAbonnement(f)
+              : blocMentions();
+
+    RIA.setContent(
+      topbar("Compte", D.resto.nom,
+        RIA.chip("Lyon 7e", I.horloge) + RIA.pill("Forfait " + f.nom, "signe")) + tabs([ { id:"horaires", lbl:"Horaires" }, { id:"livraison", lbl:"Livraison" },
+             { id:"abo", lbl:"Abonnement" }, { id:"mentions", lbl:"Mentions" } ], compteTab) +
+      corps
+    );
+
+    surTabs(function(id){ compteTab = id; renderCompteScreen(); });
+
+    if (compteTab === "horaires") brancherHoraires();
+    else if (compteTab === "livraison") brancherLivraison();
+    else if (compteTab === "abo") brancherAbonnement();
+    else brancherMentions();
+
+    if (compteTab === "horaires"){
+      RIA.actionbar('<div class="ctabar"><button class="cta" id="hExc">' + svg(I.horloge) + 'Ajouter une exception</button></div>');
+      surClic("hExc", function(){
+        var jour = prompt("Jour de l'exception ?", "1er janvier");
+        if (!jour) return;
+        var regle = prompt("Règle appliquée ce jour-là ?", "Fermé") || "Fermé";
+        D.exceptions.push({ d:jour, r:regle });
+        renderCompteScreen();
+        RIA.toast("Exception ajoutée : " + jour + " — " + regle + ".");
+      });
+    } else if (compteTab === "livraison"){
+      RIA.actionbar('<div class="ctabar"><button class="cta" id="lSave">' + svg(I.check) + 'Appliquer aux prochains appels</button></div>');
+      surClic("lSave", function(){
+        RIA.toast("Zone de livraison mise à jour : minimum " + eur(livr.minimum) + ", frais " + eur(livr.frais) + ".");
+        renderCompteScreen();
+      });
+    } else RIA.actionbar();
+  }
+
+  /* --- horaires : calendrier hebdomadaire repris de l'agenda de devis60 --- */
+  function horaireDuJour(i){
+    if (i <= 3) return D.horaires[0];
+    if (i === 4) return D.horaires[1];
+    if (i === 5) return D.horaires[2];
+    return D.horaires[3];
+  }
+  function blocHoraires(){
+    var sc = SCOPES[scopeIdx];
+    var cells = "";
+    for (var i = 0; i < 7; i++){
+      var h = horaireDuJour(i);
+      var n = h.c.split(" · ").length;
+      var actif = scopeIdx === 2 ? i !== 6 : true;
+      cells += '<div class="ag-cell' + (i === 4 ? ' auj' : '') + '" data-j="' + i + '"><span>' + n + '</span>' + (actif ? '<span class="ag-dot"></span>' : '') + '</div>';
+    }
+    var rows = D.horaires.map(function(h){
+      return '<div class="ag-card" data-h="' + esc(h.j) + '"><div class="ag-time">' + esc(h.j.split(" ")[0]) + '</div>' + '<div class="ag-info"><div class="ag-titre">' + esc(h.c) + '</div>' +
+        '<div class="ag-client">' + esc(h.j) + ' · ' + esc(sc.sous) + '</div></div>' + '<div class="ag-duree">' + esc(sc.tag) + '</div></div>';
+    }).join("");
+    var exc = D.exceptions.map(function(e){
+      return '<div class="ag-card" data-x="' + esc(e.d) + '"><div class="ag-time">' + esc(e.d.split(" ")[0]) + '</div>' + '<div class="ag-info"><div class="ag-titre">' + esc(e.r) + '</div>' +
+        '<div class="ag-client">' + esc(e.d) + '</div></div>' + '<div class="ag-duree">Except.</div></div>';
+    }).join("");
+
+    return '<div class="ag-monthbar"><button class="ag-nav" id="hPrev">' + svg('<path d="M15 18l-6-6 6-6"/>') + '</button>' + '<span class="ag-monthlbl">' + esc(sc.nom) + '</span>' +
+        '<button class="ag-nav" id="hNext">' + svg('<path d="M9 6l6 6-6 6"/>') + '</button></div>' +
+      '<div class="ag-weekdays"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>' + '<div class="ag-grid">' + cells + '</div>' +
+      RIA.note("Nombre de créneaux par jour. " + esc(sc.sous)) + fsection("Semaine type") + '<div class="ag-rows">' + rows + '</div>' + fsection("Exceptions") + '<div class="ag-rows">' + exc + '</div>' +
+      RIA.note("Un bouton d'accueil permet d'<b>arrêter les commandes 30 minutes</b> ou jusqu'à nouvel ordre, tout en laissant l'IA répondre aux questions.");
+  }
+  function brancherHoraires(){
+    surClic("hPrev", function(){ scopeIdx = (scopeIdx + SCOPES.length - 1) % SCOPES.length; renderCompteScreen(); });
+    surClic("hNext", function(){ scopeIdx = (scopeIdx + 1) % SCOPES.length; renderCompteScreen(); });
+    surTous($("content"), ".ag-cell", function(){
+      var i = parseInt(this.dataset.j, 10);
+      RIA.toast(JOURS[i] + " — " + horaireDuJour(i).c + " (" + SCOPES[scopeIdx].nom.toLowerCase() + ")");
+    });
+    surTous($("content"), "[data-h]", function(){
+      var h = D.horaires.filter(function(x){ return x.j === this.dataset.h; }.bind(this))[0];
+      RIA.sheet(h.j,
+        '<div class="acctinfo">' + acctrow("Ouverture physique", h.c) + acctrow("Prise de commande", h.c + " (dernière commande −15 min)") +
+          acctrow("Livraison", D.livraison.rayon + " · délai " + D.livraison.delai + " min") + '</div>' +
+        RIA.note("Les horaires distinguent l'ouverture physique, la prise de commande par téléphone et la livraison. Plusieurs créneaux par jour sont prévus."));
+    });
+    surTous($("content"), "[data-x]", function(){
+      RIA.toast("Exception : " + this.dataset.x + " — " +
+        D.exceptions.filter(function(e){ return e.d === this.dataset.x; }.bind(this))[0].r);
+    });
+  }
+
+  /* --- livraison --- */
+  function blocLivraison(){
+    return '<div class="acctinfo">' + acctrow("Rayon maximum", D.livraison.rayon) + acctrow("Délai annoncé", D.livraison.delai + " min") + acctrow("Paiement accepté", D.livraison.paiement) +
+        acctrow("Hors zone", "l'IA propose le retrait") + '</div>' + fsection("Montants") + '<div class="fieldgrp">' + '<div class="fg-row"><label for="lMin">Minimum de commande (€)</label>' +
+          '<input class="field" id="lMin" value="' + (livr.minimum / 100).toFixed(2) + '"></div>' + '<div class="fg-row"><label for="lFrais">Frais de livraison (€)</label>' +
+          '<input class="field" id="lFrais" value="' + (livr.frais / 100).toFixed(2) + '"></div>' + '</div>' + '<div class="lines" id="lApercu">' +
+        ligne("Minimum", "sous ce montant, l'IA propose le retrait", eur(livr.minimum)) + ligne("Frais", "ajoutés au récapitulatif et au ticket", eur(livr.frais)) +
+        ligne("Exemple", "commande de " + eur(1800) + " livrée", eur(1800 + livr.frais)) + '</div>' +
+      RIA.note("Pour une livraison, l'IA recueille numéro et rue, code postal et ville, bâtiment, étage, digicode et instruction de remise, puis calcule la distance <b>par la route</b>. " + esc(D.regles.paiement));
+  }
+  function brancherLivraison(){
+    function maj(){
+      var m = parseFloat(String($("lMin").value).replace(",", "."));
+      var f = parseFloat(String($("lFrais").value).replace(",", "."));
+      if (!isNaN(m) && m >= 0) livr.minimum = Math.round(m * 100);
+      if (!isNaN(f) && f >= 0) livr.frais = Math.round(f * 100);
+      var v = $("lApercu").querySelectorAll(".line .v");
+      v[0].textContent = eur(livr.minimum);
+      v[1].textContent = eur(livr.frais);
+      v[2].textContent = eur(1800 + livr.frais);
+    }
+    $("lMin").addEventListener("input", maj);
+    $("lFrais").addEventListener("input", maj);
+  }
+
+  /* --- abonnement : palette grise dédiée, comme devis60 --- */
+  function blocAbonnement(f){
+    var minutes = D.resto.minutes;
+    var incluses = f.minutes;
+    var pct = incluses ? Math.min(100, Math.round(minutes / incluses * 100)) : 100;
+    var alerte = incluses ? (minutes / incluses >= 0.8) : true;
+    var depasse = incluses ? Math.max(0, minutes - incluses) : minutes;
+
+    var plans = D.forfaits.map(function(p){
+      var sousTitre = p.minutes
+        ? eur0(p.prix) + "/mois — " + p.minutes + " min incluses, puis " + eur(p.dep) + "/min"
+        : "sans abonnement — " + eur(p.dep) + "/min, " + p.note.toLowerCase();
+      return '<button class="sub-plan-card' + (p.id === forfaitSel ? ' on' : '') + '" data-f="' + esc(p.id) + '">' + '<span class="radio"></span><span class="pl-info"><span class="pl-name">' + esc(p.nom) + '</span>' +
+        '<span class="pl-price">' + esc(sousTitre) + '</span></span>' + (p.id === D.resto.forfait ? '<span class="pl-badge">ACTUEL</span>' : '') + '</button>';
+    }).join("");
+
+    return '<div class="sub-hero">' + '<div class="sub-ribbon">' + svg(I.bouclier) + 'Essai gratuit</div>' + '<div class="sub-plan">Forfait ' + esc(f.nom) + '</div>' +
+        '<div class="sub-head">' + (f.minutes ? f.minutes + ' minutes d\'appels incluses' : 'Paiement à l\'usage, sans abonnement') + '</div>' +
+        '<div class="sub-price-row"><span class="sub-price-now">' + eur0(f.prix) + '<small>/mois</small></span></div>' + '<div class="sub-plans">' + plans + '</div>' +
+        '<div class="sub-trustrow">' + RIA.chip("Essai gratuit", I.check) + RIA.chip("6 mois", I.horloge) + RIA.chip("SEPA", I.carteb) + '</div>' + '</div>' + fsection("Consommation du mois") +
+      bloc(barre(minutes + " / " + (incluses || "∞") + " min", pct, alerte ? "haut" : "ok")) + (alerte
+        ? banniere("Alerte automatique à 80 % des minutes incluses. Le service n'est jamais coupé : " +
+            (depasse ? "les " + depasse + " minutes au-delà sont facturées " + eur(f.dep) + "/min." : "le dépassement est facturé " + eur(f.dep) + "/min."))
+        : RIA.note("Alerte automatique envoyée à <b>80 %</b> des minutes incluses. Le service n'est jamais coupé, le dépassement est facturé " + esc(eur(f.dep)) + "/min.")) + '<div class="sub-money">' +
+        moneyRow("Abonnement", "prélevé chaque mois", f.prix ? eur0(f.prix) : "0 €") + moneyRow("Minutes incluses", "au-delà : " + eur(f.dep) + "/min", (f.minutes || 0) + " min") +
+        moneyRow("Consommé ce mois", "coût IA à " + eur(D.coutMinute) + "/min", eur(minutes * D.coutMinute)) + moneyRow("Commission apporteur", "par mois et par client actif", eur(D.commission)) +
+        moneyRow("Dépassement estimé", depasse ? depasse + " min hors forfait" : "aucun dépassement", eur(depasse * f.dep)) + '</div>' + '<div class="sub-steps">' +
+        subStep("1", "Essai gratuit", "L'essai mesure votre vrai volume d'appels avant toute recommandation de forfait.") +
+        subStep("2", "Forfait recommandé", "Le forfait proposé correspond aux minutes réellement consommées pendant l'essai.") +
+        subStep("3", "Engagement de 6 mois", "Après l'essai, l'abonnement s'engage sur 6 mois, facturé au compteur à la seconde.") + '</div>' +
+      '<div class="ctabar"><button class="sub-cta" id="aboGo">' + svg(I.carteb) + 'Passer au forfait ' + esc(f.nom) + '</button></div>' +
+      '<div class="sub-fine">Maquette — aucun paiement réel. <b>Essai gratuit</b> puis engagement de 6 mois, ' + 'prélèvement SEPA par défaut, carte en option avec frais répercutés.</div>';
+  }
+  function moneyRow(k, d, v){
+    return '<div class="sub-money-row"><span><span class="k">' + esc(k) + '</span><span class="d">' + esc(d) + '</span></span>' + '<span class="v">' + esc(v) + '</span></div>';
+  }
+  function subStep(n, titre, txt){
+    return '<div class="sub-step"><span class="num">' + esc(n) + '</span><span class="tx"><b>' + esc(titre) + '</b><span>' + esc(txt) + '</span></span></div>';
+  }
+  function brancherAbonnement(){
+    surTous($("content"), ".sub-plan-card", function(){
+      forfaitSel = this.dataset.f;
+      renderCompteScreen();
+    });
+    surClic("aboGo", function(){
+      var f = forfait(forfaitSel);
+      RIA.toast(f.prix
+        ? "Forfait " + f.nom + " à " + eur0(f.prix) + "/mois — essai gratuit d'abord, puis 6 mois."
+        : "PAYG : aucun abonnement, " + eur(f.dep) + "/min et " + f.note.toLowerCase() + ".");
+    });
+  }
+
+  /* --- mentions --- */
+  function blocMentions(){
+    return '<div class="acctinfo">' + acctrow("Restaurant", D.resto.nom) + acctrow("Adresse", D.resto.adresse) + acctrow("Numéro public", D.resto.tel) + acctrow("Assistant", D.resto.assistant) + '</div>' +
+      fsection("Règles de service") + '<div class="menu">' + RIA.menurow(I.phone, "Renvoi d'appel chez l'opérateur") + RIA.menurow(I.check, "Confirmation avant la cuisine") +
+        RIA.menurow(I.sms, "Modification d'une commande") + RIA.menurow(I.transfert, "Transfert vers un humain") + '</div>' + fsection("Données et paiement") + RIA.note(esc(D.regles.rgpd)) +
+      RIA.note(esc(D.regles.paiement));
+  }
+  function brancherMentions(){
+    var textes = [
+      { t:"Renvoi d'appel chez l'opérateur", x:D.regles.renvoi },
+      { t:"Confirmation avant la cuisine",   x:D.regles.confirmation },
+      { t:"Modification d'une commande",     x:D.regles.modification },
+      { t:"Transfert vers un humain",        x:D.regles.transfert }
+    ];
+    var rows = $("content").querySelectorAll(".menurow");
+    for (var i = 0; i < rows.length; i++){
+      (function(k){
+        rows[k].addEventListener("click", function(){
+          RIA.sheet(textes[k].t, RIA.note(esc(textes[k].x)) + RIA.note(esc(D.regles.rgpd)));
+        });
+      })(i);
+    }
+  }
+
+  /* ---------- enregistrement de l'application ---------- */
+  RIA.register({
+    id:"gerant", nom:"Gérant", badge:"2",
+    fond:"linear-gradient(150deg,#9db8ff,#5f7fd8)", encre:"#071020",
+    glyph:'<path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/>',
+    espace:"ESPACE GÉRANT",
+    titre:"Resto IA", sub:"L'assistant décroche quand la cuisine ne peut pas.",
+    cta:"Se connecter",
+    tabs:[
+      { id:"service", lbl:"Service", svg:I.power,  go:renderServiceScreen },
+      { id:"appels",  lbl:"Appels",  svg:I.phone,  go:renderAppelsScreen },
+      { id:"menu",    lbl:"Menu",    svg:I.carte,  go:renderMenuScreen },
+      { id:"voix",    lbl:"Voix",    svg:I.micro,  go:renderVoixScreen },
+      { id:"compte",  lbl:"Compte",  svg:I.profil, go:renderCompteScreen }
+    ]
+  });
+})();

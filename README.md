@@ -1,80 +1,107 @@
 # Maquette — les trois applications dans un téléphone
 
-Maquette interactive de Resto IA : un téléphone à l'écran, un écran d'accueil
+Prototype interactif de Resto IA : un téléphone à l'écran, un écran d'accueil
 avec ses icônes, et **trois applications réellement cliquables** — gérant,
-cuisine, commercial. Tout vient du business plan **v1.7**.
+cuisine, commercial. Tout le contenu vient du business plan **v1.7**.
 
-Ouvrir : `index.html` en double-clic ne suffit pas (modules ES bloqués par
-`file://`). Lancer un serveur local :
+En ligne : <https://haydenrouet2104-web.github.io/resto-ia-maquette/>
 
-```
-cd resto-ia/maquette && python3 -m http.server 8080
-```
+> **Tu viens modifier la maquette ?** Lis `CONTRIBUER.md` d'abord : il dit dans
+> quel dépôt travailler, quel fichier ouvrir pour quel changement, et comment
+> publier.
 
-puis `http://localhost:8080`. En ligne : voir « Publication » plus bas.
+## La forme vient de devis60, entièrement
 
-> **Tu viens modifier la maquette ?** Lis `CONTRIBUER.md` d'abord : il dit
-> dans quel dépôt travailler, quel fichier ouvrir pour quel changement, et
-> comment publier.
+Ce n'est pas une inspiration lointaine : c'est le même produit visuel.
 
-## Architecture
+- **`src/theme.css` est le CSS de devis60 repris à l'identique**, dans l'ordre
+  où le navigateur le reçoit en production : la feuille de l'application
+  (`devis60/src/app-html.js`), puis la passe atelier, puis
+  `devis60/src/theme.js` — la couche bleu nuit que le Worker injecte après le
+  dernier `</style>`. Rien n'a été réécrit. Si devis60 change de peau, on
+  recopie.
+- **La structure HTML est la même, balise pour balise** : `.caption` au-dessus
+  du téléphone, `.device > .notch + .viewport`, puis `.home` (barre d'état,
+  `.iconsgrid`, `.dock`) et `.screen` (barre d'état, `.content`, `.actionbar`,
+  `.navbar`, `.homeind`), un `.toast`, et le `<footer>` explicatif.
+- **Le JavaScript est en ES5**, comme devis60 : `var` et `function`, pas de
+  modules, pas de build, chargé par des `<script>` classiques. `setContent()`
+  avec fondu, `toast()`, la barre d'onglets rendue à chaque écran, l'`actionbar`
+  pilotée par l'écran courant.
+- **Aucune classe CSS n'a été créée.** Les écrans sont composés uniquement avec
+  les classes qui existent déjà : le fil de discussion et ses bulles pour
+  l'appel en direct, les cartes du journal pour les commandes, la marketplace
+  (`.mkt-card`, `.lead-*`) pour les prospects, le document imprimable
+  (`.doc-*`) pour le ticket de caisse, les blocs `.sub-*` pour l'abonnement,
+  l'agenda pour les horaires.
 
-Reprise de l'esprit de `devis60/` : **vanilla HTML/CSS/JS, aucune dépendance,
-aucun build, aucun framework**. La différence : ici le code est découpé en
-modules ES au lieu d'une chaîne JavaScript unique, précisément parce que
-`devis60/src/app-html.js` s'est révélé impossible à éditer sans le casser.
+Seule différence assumée : le téléphone porte **trois** applications au lieu
+d'une, donc `openApp()` prend un identifiant et chaque application apporte sa
+propre barre d'onglets.
+
+## Fichiers
 
 ```
 index.html              le téléphone : châssis, barre d'état, écran d'accueil
-src/theme.css           la couche visuelle commune — c'est ici qu'on change l'apparence
-src/phone.js            le runtime : ouverture/fermeture d'app, notifications, feuilles
-src/ui.js               helpers partagés (topbar, navbar, sparkline, anneau, compteurs)
-src/icons.js            glyphes SVG + icônes de décor de l'écran d'accueil
-src/data.js             toutes les données d'exemple, tirées du business plan
+src/theme.css           la couche visuelle — le CSS de devis60, tel quel
+src/app.js              le noyau : accueil, ouverture d'appli, setContent,
+                        toast, barre d'onglets, feuille coulissante
+src/data.js             toutes les données, tirées du business plan v1.7
 src/app-gerant.js       ┐
-src/app-cuisine.js      ├ une application = un module = un fichier
+src/app-cuisine.js      ├ une application = un fichier
 src/app-commercial.js   ┘
 ```
 
+Pourquoi découpé, alors que devis60 tient en une seule chaîne JavaScript ?
+Parce que cette chaîne est précisément ce qui a cassé deux fois le Worker :
+`devis60/design/v0/README.md` interdit d'y toucher. Ici chaque fichier s'édite
+normalement.
+
 ### Contrat d'une application
 
-Chaque module exporte un objet ; `phone.js` fait le reste (animation
-d'ouverture depuis l'icône, barre d'accueil, fermeture, nettoyage).
-
 ```js
-export default {
-  id, nom, sousTitre,
-  accent,        // couleur de l'app (barre d'onglets, accents)
-  fond, encre,   // apparence de l'icône sur l'écran d'accueil
-  icone,         // nom d'un glyphe de icons.js
-  badge,         // pastille de notification
-  css,           // styles de l'app — classes préfixées .gr- / .ku- / .cm-
-  monter(win, api) { … return demonter; }
-};
+RIA.register({
+  id, nom, badge,        // l'icône sur l'écran d'accueil et sa pastille
+  fond, encre, glyph,    // son apparence
+  espace,                // le bandeau « ESPACE … » ajouté dans chaque .topbar
+  titre, sub, cta,       // son écran de connexion
+  tabs: [ { id, lbl, svg, go } ]   // sa barre d'onglets
+});
 ```
 
-`api` donne accès à `data`, `fmt`, `ico`, et aux services du téléphone :
-`toast`, `notif`, `sheet`, `basculer(idApp)`, `badge(n)`, `fermer`, `vibrer`.
+`RIA` fournit : `setContent`, `renderNavbar`, `actionbar`, `screenHeader`,
+`backHeader`, `menurow`, `chip`, `pill`, `stat`, `note`, `sheet`, `closeSheet`,
+`toast`, `openApp`, `every` / `after` (minuteurs annulés à la fermeture de
+l'appli), et les formateurs `eur`, `dur`, `chrono`, `esc`, `norm`, `svg`.
 
 ### Conventions
 
 - **L'argent est en centimes entiers**, les durées d'appel en secondes — même
-  règle que `resto-ia/supabase/migrations`. Les minutes sont dérivées à
-  l'affichage.
-- Thème sombre uniquement, largeur utile ~390 px, comme `devis60`.
-- Les classes du thème (`.card`, `.cta`, `.chip`, `.seg`, `.switch`, `.note`,
-  `.listrow`, `.stagger`…) sont partagées. Une application qui a besoin d'une
-  classe à elle la déclare dans son propre `css`, **préfixée**, pour qu'aucune
-  application ne puisse repeindre une autre.
-- `prefers-reduced-motion` est respecté partout.
+  règle que `resto-ia/supabase/migrations`.
+- Thème sombre uniquement, largeur utile 390 px.
+- `prefers-reduced-motion` est déjà respecté par le CSS de devis60.
+- Les ressources portent un `?v=` : après une mise en ligne, un rechargement
+  simple suffit, sans vider le cache.
+- Un `<svg>` inséré sans `width`/`height` occupe 300 × 150 px et fait éclater
+  son conteneur : `RIA.svg()` pose donc une taille par défaut, que le CSS
+  écrase là où il en définit une.
 
 ## Ce que chaque application montre
 
 | Application | Onglets |
 |---|---|
-| **Gérant** | Service (charge et chiffres du jour) · Appels (journal + appel en direct rejouable) · Menu (fiches produit, ruptures, import de carte) · Voix (ton, vitesse, voix signature, appel test) · Compte (horaires, livraison, abonnement) |
-| **Cuisine** | File (six statuts, comptes à rebours, arrivée de commandes) · Tickets (ESC/POS, impression, modification) · Ruptures · Charge (rush) |
-| **Commercial** | Secteur (carte des prospects, tournée) · Prospects (8 statuts, réservation 3 jours, preuves de visite) · Argumentaire · Gains (commissions 7,50 €) |
+| **Gérant** | Service (charge, chiffres du jour) · Appels (appel en direct rejoué + journal) · Menu (fiches produit, ruptures, import de carte) · Voix (ton, vitesse, voix signature, appel test) · Compte (horaires, livraison, abonnement) |
+| **Cuisine** | File (six statuts, comptes à rebours, commandes qui tombent) · Tickets (ESC/POS, impression, modification) · Ruptures · Charge |
+| **Commercial** | Secteur (zone, tournée) · Prospects (8 statuts, réservation 3 jours, preuves de visite) · Argumentaire · Gains (commissions 7,50 €) |
+
+## Essayer en local
+
+Les fichiers sont chargés par des `<script>` classiques, donc un double-clic sur
+`index.html` suffit. Pour être au plus près de la mise en ligne :
+
+```
+cd resto-ia/maquette && python3 -m http.server 8080
+```
 
 ## Publication — le lien public
 
@@ -120,8 +147,9 @@ Tout est en clair, sans build : ouvrir le dossier, éditer, recharger.
 - **Changer une donnée affichée** → `src/data.js`. Aucun chiffre ne doit être
   écrit en dur dans une application.
 - **Ajouter une quatrième application** → créer `src/app-xxx.js` sur le même
-  contrat, puis l'importer et l'ajouter au tableau `APPS` dans `src/phone.js`.
-  Elle apparaîtra automatiquement sur l'écran d'accueil.
+  contrat (il se termine par `RIA.register({…})`), puis ajouter sa balise
+  `<script>` dans `index.html`. Elle apparaît automatiquement sur l'écran
+  d'accueil.
 - **Tester** → `python3 -m http.server 8080` dans ce dossier (les modules ES
   ne se chargent pas en `file://`), puis `http://localhost:8080`.
 - **Vérifier la syntaxe d'un module** →
