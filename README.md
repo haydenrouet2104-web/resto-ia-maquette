@@ -13,6 +13,10 @@ cd resto-ia/maquette && python3 -m http.server 8080
 
 puis `http://localhost:8080`. En ligne : voir « Publication » plus bas.
 
+> **Tu viens modifier la maquette ?** Lis `CONTRIBUER.md` d'abord : il dit
+> dans quel dépôt travailler, quel fichier ouvrir pour quel changement, et
+> comment publier.
+
 ## Architecture
 
 Reprise de l'esprit de `devis60/` : **vanilla HTML/CSS/JS, aucune dépendance,
