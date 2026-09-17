@@ -199,10 +199,10 @@ h1{font-size:25px;line-height:1.16}
   margin:10px 0 8px;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px
 }
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .stat{
-  min-width:0;padding:10px 7px 9px;border-radius:13px;border-color:rgba(123,220,173,.17);
-  background:linear-gradient(145deg,rgba(31,62,52,.88),rgba(12,24,21,.86));
-  box-shadow:inset 0 1px 0 rgba(205,255,229,.06),0 12px 24px -22px rgba(0,0,0,.95)
+  min-width:0;padding:5px 8px 7px;border:0;border-radius:0;background:transparent;box-shadow:none;
+  border-right:1px solid rgba(123,220,173,.16)
 }
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .stat:last-child{border-right:0}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .stat .v{font-size:17px;font-family:var(--f-mono);font-weight:500}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .stat .l{font-size:7.5px;letter-spacing:.055em;line-height:1.25}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .journaltabs{
@@ -219,17 +219,29 @@ h1{font-size:25px;line-height:1.16}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .body{padding:0 0 8px;gap:17px}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .fam{gap:8px}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .fam-h{margin-left:2px;color:rgba(170,239,202,.72)}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] [data-active-orders]{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:8px
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] [data-active-orders] .fam-h{grid-column:1/-1}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .card{
-  position:relative;overflow:hidden;border:1px solid rgba(138,221,177,.15);border-left:2px solid rgba(107,222,161,.76);
-  background:linear-gradient(132deg,rgba(30,60,50,.9),rgba(15,29,25,.95) 64%,rgba(20,48,39,.88));
-  box-shadow:0 18px 34px -27px #000,inset 0 1px 0 rgba(222,255,237,.055)
+  position:relative;overflow:hidden;min-width:0;padding:12px 11px;border:1px solid rgba(138,221,177,.16);border-left:2px solid rgba(107,222,161,.76);
+  background:linear-gradient(132deg,rgba(28,55,47,.82),rgba(13,27,23,.91) 64%,rgba(19,42,35,.82));
+  box-shadow:0 14px 28px -25px #000,inset 0 1px 0 rgba(222,255,237,.05)
 }
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .card:before{
   content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,rgba(158,255,204,.26),transparent)
 }
-#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .row1{align-items:flex-start}
-#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .amount{font-size:14px}
-#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .cta{margin-top:3px;padding:12px 14px;font-size:14px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .row1{align-items:flex-start;gap:5px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .who{font-size:14px;white-space:normal;overflow:visible;line-height:1.18}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .job{font-size:10px;line-height:1.35}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .row2{margin-top:-3px;gap:4px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .date{font-size:8.5px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .amount{font-size:10px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .pill{font-size:8px;padding:3px 5px;text-align:right;line-height:1.1}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .line{padding:6px 0;font-size:10px;line-height:1.25;border-color:rgba(172,239,203,.11)}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .line .n{min-width:0}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .line .n small{font-size:9px;line-height:1.3;margin-top:2px;overflow-wrap:anywhere}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .cta{margin-top:3px;padding:9px 7px;font-size:11px;line-height:1.1;min-height:34px}
 #appwrap[data-app="cuisine"] [data-kitchen-queue] .calcdetail{
   margin:0;border:1px solid rgba(133,214,171,.13);background:rgba(14,28,24,.7);box-shadow:inset 0 1px 0 rgba(210,255,232,.035)
 }

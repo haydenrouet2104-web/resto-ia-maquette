@@ -164,6 +164,13 @@
     return fam.id === filtre;
   }
 
+  function tiroir(titre, liste){
+    if (!liste.length) return "";
+    return '<details class="calcdetail"><summary>' + esc(titre) +
+      svg('<path d="m6 9 6 6 6-6"/>') + '</summary><div class="calcbody">' +
+      liste.map(carteHtml).join("") + '</div></details>';
+  }
+
   function paintFile(){
     var lvl = niveau();
     var onglets = [
@@ -193,18 +200,23 @@
     }
     var corps = "";
     var fams = familles();
-    for (var i = 0; i < fams.length; i++){
-      var f = fams[i];
-      if (!visibles(f)) continue;
-      var liste = D.commandes.filter(function(c){ return f.etats.indexOf(c.etat) >= 0; });
-      if (!liste.length) continue;
-      if (filtre === "tout" && (f.id === "encoursappel" || f.id === "expirees")){
-        corps += '<details class="calcdetail"><summary>' +
-          esc(f.id === "encoursappel" ? liste.length + " à confirmer — ne pas préparer" : liste.length + " annulée(s) / expirée(s)") +
-          svg('<path d="m6 9 6 6 6-6"/>') + '</summary><div class="calcbody">' +
-          liste.map(carteHtml).join("") + '</div></details>';
-      } else {
-        corps += '<div class="fam"><div class="fam-h">' + esc(f.h) + ' — ' + liste.length + '</div>' +
+    if (filtre === "tout"){
+      var attente = D.commandes.filter(function(c){ return c.etat === "appel" || c.etat === "attente"; });
+      var actives = D.commandes.filter(function(c){ return ["confirmee","preparation","prete"].indexOf(c.etat) >= 0; });
+      var expirees = D.commandes.filter(function(c){ return c.etat === "expiree"; });
+      corps += tiroir(attente.length + " à confirmer — ne pas préparer", attente);
+      if (actives.length){
+        corps += '<div class="fam" data-active-orders><div class="fam-h">Production — ' + actives.length + '</div>' +
+          actives.map(carteHtml).join("") + '</div>';
+      }
+      corps += tiroir(expirees.length + " annulée(s) / expirée(s)", expirees);
+    } else {
+      for (var i = 0; i < fams.length; i++){
+        var f = fams[i];
+        if (!visibles(f)) continue;
+        var liste = D.commandes.filter(function(c){ return f.etats.indexOf(c.etat) >= 0; });
+        if (!liste.length) continue;
+        corps += '<div class="fam" data-active-orders><div class="fam-h">' + esc(f.h) + ' — ' + liste.length + '</div>' +
           liste.map(carteHtml).join("") + '</div>';
       }
     }
@@ -243,13 +255,22 @@
     var e = etatInfo(c);
     var haut = '<div class="row1">' +
       '<div><div class="who">#' + c.id + (c.client ? " · " + esc(c.client) : " · appel en cours") + '</div>' +
-      '<div class="job">' + modeLbl(c) + (c.prete ? " · annoncée " + esc(c.prete) : "") + '</div></div>' +
-      '<div class="amtwrap"><span class="amount">' + eur(c.total + (c.mode === "livraison" ? (c.frais || 0) : 0)) + '</span></div></div>';
-
-    var bas = '<div class="row2"><span class="date">reçue ' + esc(c.heure || "—") + '</span>' +
+      '<div class="job">' + modeLbl(c) + (c.prete ? " · " + esc(c.prete) : "") + '</div></div>' +
       RIA.pill(e.lbl, e.tone) + '</div>';
 
-    var milieu = '<div class="job">' + esc(resume(c)) + '</div>';
+    var bas = '<div class="row2"><span class="date">reçue ' + esc(c.heure || "—") +
+      (c.mode === "livraison" && c.km ? " · " + String(c.km).replace(".", ",") + " km" : "") + '</span>' +
+      '<span class="amount">' + eur(c.total + (c.mode === "livraison" ? (c.frais || 0) : 0)) + '</span></div>';
+
+    var milieu = c.lignes.length ? c.lignes.map(function(l){
+      var sous = [l.opt, l.sup ? "+ " + l.sup : "", l.dem].filter(function(x){ return !!x; }).join(" · ");
+      return '<div class="line"><span class="n"><b>' + l.q + '× ' + esc(l.nom) + '</b>' +
+        (sous ? '<small>' + esc(sous) + '</small>' : "") + '</span></div>';
+    }).join("") : '<div class="job">Panier en cours de création.</div>';
+
+    if (c.mode === "livraison" && c.adresse){
+      milieu += '<div class="job">' + esc(c.adresse) + '</div>';
+    }
 
     if (c.etat === "appel"){
       milieu = '<div class="job">L\'assistant est en ligne depuis <b id="cui-a-' + c.id + '">' +
@@ -271,7 +292,7 @@
     var btn = boutonEtat(c);
     var action = btn ? '<button class="cta" data-act="' + c.id + '">' + svg(ICO.check) + esc(btn) + '</button>' : "";
 
-    return '<div class="card" data-cmd="' + c.id + '">' + haut + bas + milieu + action + '</div>';
+    return '<div class="card" data-cmd="' + c.id + '">' + haut + bas + '<div>' + milieu + '</div>' + action + '</div>';
   }
 
   function tonBarre(pct){ return pct > 55 ? "ok" : (pct > 22 ? "haut" : "bas"); }
