@@ -153,7 +153,7 @@ var RIA = (function(){
 
   /* Reprend l'ajout du bandeau d'espace de travail fait par theme.js en prod. */
   function marquer(){
-    var bars = document.querySelectorAll(".topbar:not([data-product-header])");
+    var bars = document.querySelectorAll(".topbar:not([data-product-header]):not([data-no-workspace])");
     for (var i = 0; i < bars.length; i++){
       bars[i].dataset.productHeader = "true";
       var mark = document.createElement("div");

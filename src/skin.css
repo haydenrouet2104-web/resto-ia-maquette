@@ -181,6 +181,67 @@ h1{font-size:25px;line-height:1.16}
 #appwrap[data-app="cuisine"] .jtab{font-size:11px;padding:9px 5px}
 #appwrap[data-app="cuisine"] .cta{font-size:16px;padding:15px 16px}
 
+/* Page principale cuisine : une surface de travail, pas un tableau de bord.
+   L'en-tête reste volontairement réduit au restaurant et à son état. */
+#appwrap[data-app="cuisine"] .screen{background:
+  radial-gradient(100% 42% at 18% 0%,rgba(55,151,111,.18),transparent 60%),
+  radial-gradient(80% 40% at 100% 45%,rgba(44,107,91,.11),transparent 66%),
+  var(--bg)}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .topbar[data-no-workspace]{
+  min-height:58px;padding:5px 2px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .topbar[data-no-workspace] h1{
+  margin:0;min-width:0;font-size:23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .topbar[data-no-workspace] .chip-row{padding:0;flex:none}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .topbar[data-no-workspace] .pill{white-space:nowrap;padding:6px 9px;font-size:10px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .stats{
+  margin:10px 0 8px;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .stat{
+  min-width:0;padding:10px 7px 9px;border-radius:13px;border-color:rgba(123,220,173,.17);
+  background:linear-gradient(145deg,rgba(31,62,52,.88),rgba(12,24,21,.86));
+  box-shadow:inset 0 1px 0 rgba(205,255,229,.06),0 12px 24px -22px rgba(0,0,0,.95)
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .stat .v{font-size:17px;font-family:var(--f-mono);font-weight:500}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .stat .l{font-size:7.5px;letter-spacing:.055em;line-height:1.25}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .journaltabs{
+  margin:0 -2px 16px;padding:0;background:transparent;border-radius:0;border-bottom:1px solid rgba(139,225,183,.14);
+  display:flex;gap:0;overflow:hidden
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .jtab{
+  min-width:0;flex:1;padding:10px 3px 9px;border-radius:0;background:transparent;color:var(--ink-3);font-size:10px
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .jtab.on{
+  background:transparent;color:var(--accent-ink);box-shadow:inset 0 -2px 0 var(--accent)
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .jtab .jn{font-size:8px;margin-left:2px;background:transparent;padding:0;color:inherit}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .body{padding:0 0 8px;gap:17px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .fam{gap:8px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .fam-h{margin-left:2px;color:rgba(170,239,202,.72)}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card{
+  position:relative;overflow:hidden;border:1px solid rgba(138,221,177,.15);border-left:2px solid rgba(107,222,161,.76);
+  background:linear-gradient(132deg,rgba(30,60,50,.9),rgba(15,29,25,.95) 64%,rgba(20,48,39,.88));
+  box-shadow:0 18px 34px -27px #000,inset 0 1px 0 rgba(222,255,237,.055)
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card:before{
+  content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,rgba(158,255,204,.26),transparent)
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .row1{align-items:flex-start}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .amount{font-size:14px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .card .cta{margin-top:3px;padding:12px 14px;font-size:14px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .calcdetail{
+  margin:0;border:1px solid rgba(133,214,171,.13);background:rgba(14,28,24,.7);box-shadow:inset 0 1px 0 rgba(210,255,232,.035)
+}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .calcdetail summary{padding:13px 14px;color:var(--ink-2);font-size:12px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .calcdetail .calcbody{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .calcdetail .card{border-left-color:var(--warn);background:rgba(57,43,19,.66)}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .calcdetail .card .who{font-size:15px}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .fam .card{animation:kitchen-card-in .34s cubic-bezier(.2,.8,.2,1) both}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .fam .card:nth-of-type(2){animation-delay:.05s}
+#appwrap[data-app="cuisine"] [data-kitchen-queue] .fam .card:nth-of-type(3){animation-delay:.1s}
+@keyframes kitchen-card-in{from{opacity:0;transform:translateY(9px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+
 /* Commercial : la liste devient un CRM de terrain — nom, statut et prochaine
    décision ressortent avant les métriques. */
 #appwrap[data-app="commercial"] .mkt-card{padding:11px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent-soft) 24%,var(--surface)),var(--surface) 55%)}
@@ -200,4 +261,7 @@ h1{font-size:25px;line-height:1.16}
   .screen .topbar h1{font-size:25px}
   .navbar .navitem span{font-size:8px}
   .card .who,.mkt-title{font-size:14px}
+}
+@media (prefers-reduced-motion:reduce){
+  #appwrap[data-app="cuisine"] [data-kitchen-queue] .fam .card{animation:none}
 }

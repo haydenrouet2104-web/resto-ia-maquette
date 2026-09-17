@@ -191,11 +191,6 @@
         '<span><b>Commandes stoppées.</b> L\'IA n\'enregistre plus rien et annonce une reprise à ' +
         esc(repriseA || dans(30)) + '. Elle continue de répondre aux questions.</span></div>';
     }
-    if (compte("appel") || compte("attente")){
-      bandeaux += '<div class="alert-banner">' + svg(ICO.tel) +
-        '<span><b>Ne rien préparer sur les cartes jaunes.</b> ' + esc(D.regles.confirmation) + '</span></div>';
-    }
-
     var corps = "";
     var fams = familles();
     for (var i = 0; i < fams.length; i++){
@@ -203,15 +198,24 @@
       if (!visibles(f)) continue;
       var liste = D.commandes.filter(function(c){ return f.etats.indexOf(c.etat) >= 0; });
       if (!liste.length) continue;
-      corps += '<div class="fam"><div class="fam-h">' + esc(f.h) + ' — ' + liste.length + '</div>' +
-        liste.map(carteHtml).join("") + '</div>';
+      if (filtre === "tout" && (f.id === "encoursappel" || f.id === "expirees")){
+        corps += '<details class="calcdetail"><summary>' +
+          esc(f.id === "encoursappel" ? liste.length + " à confirmer — ne pas préparer" : liste.length + " annulée(s) / expirée(s)") +
+          svg('<path d="m6 9 6 6 6-6"/>') + '</summary><div class="calcbody">' +
+          liste.map(carteHtml).join("") + '</div></details>';
+      } else {
+        corps += '<div class="fam"><div class="fam-h">' + esc(f.h) + ' — ' + liste.length + '</div>' +
+          liste.map(carteHtml).join("") + '</div>';
+      }
     }
     if (!corps) corps = '<div class="empty">Rien dans ce filtre.<br>La file se remplit toute seule dès qu\'une commande est confirmée.</div>';
 
     RIA.setContent(
-      RIA.screenHeader("Production · " + lvl.nom, "À produire maintenant",
-        D.resto.nom + " — seules les commandes confirmées passent en préparation.") +
-      stats + tabs + bandeaux + '<div class="body">' + corps + '</div>'
+      '<div data-kitchen-queue>' +
+        '<div class="topbar" data-no-workspace><h1>' + esc(D.resto.nom) + '</h1>' +
+          '<div class="chip-row">' + RIA.pill("Cuisine · " + lvl.nom, lvl.pill) + '</div></div>' +
+        stats + tabs + bandeaux + '<div class="body">' + corps + '</div>' +
+      '</div>'
     );
 
     var jt = $("content").querySelectorAll(".jtab");
