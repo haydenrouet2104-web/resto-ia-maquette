@@ -124,3 +124,80 @@ h1{font-size:25px;line-height:1.16}
 @media (prefers-reduced-motion:reduce){
   .cta,.sec,.qchip,.qreply,.jtab,.m,.mkt-catchip,.pill,.menurow,.navitem{transition:none}
 }
+
+/* ---------- 11. système produit v1.8 ----------
+   Chaque rôle a une couleur mais partage les mêmes repères : action urgente
+   en premier, informations secondaires ensuite, réglages à l'écart du flux.
+   Cela évite de réapprendre l'interface en changeant d'application. */
+#appwrap[data-app="gerant"]{--accent:#7ea2ff;--accent-ink:#bfd0ff;--accent-soft:#182a55;--accent-metal:linear-gradient(120deg,#dbe5ff,#82a5ff 55%,#b6caff)}
+#appwrap[data-app="cuisine"]{--accent:#56d3a0;--accent-ink:#9bf0cb;--accent-soft:#103e31;--accent-metal:linear-gradient(120deg,#cffbe7,#65dca8 55%,#9aebc7)}
+#appwrap[data-app="commercial"]{--accent:#bda8ff;--accent-ink:#d7ccff;--accent-soft:#30225d;--accent-metal:linear-gradient(120deg,#eee9ff,#bba2ff 55%,#d9cdff)}
+
+.screen .content{padding:14px 18px 10px;scroll-padding-bottom:32px}
+.screen .topbar{padding:4px 4px 14px;border-bottom:1px solid color-mix(in srgb,var(--rule) 78%,transparent)}
+.screen .topbar h1{font-size:27px;letter-spacing:-.055em;margin-top:5px}
+.screen .topbar .sub{margin-top:5px;max-width:31ch;color:var(--ink-2)}
+.ui-workspace-mark{margin-bottom:12px}
+.ui-workspace-mark em{font-size:9px;letter-spacing:.11em;color:var(--accent-ink);font-style:normal}
+
+/* Une hiérarchie plus nette : les cartes sont des unités de travail, pas des
+   boîtes décoratives. */
+.card,.factcard,.mkt-card,.pricecard,.lines,.acctinfo,.menu,.calcdetail{
+  border-color:color-mix(in srgb,var(--rule-strong) 68%,transparent);
+  box-shadow:0 10px 25px -23px #000, inset 0 1px 0 rgba(255,255,255,.025);
+}
+.card,.factcard,.mkt-card{border-radius:17px}
+.card{gap:9px;padding:15px 16px}
+.card .who,.mkt-title{font-size:15px;font-weight:650;letter-spacing:-.015em}
+.card .job{line-height:1.45}
+.factcard{padding:14px 15px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent-soft) 76%,var(--surface)),var(--surface))}
+.fc-btn{border-radius:11px}
+.alert-banner{border-color:color-mix(in srgb,var(--accent) 37%,var(--rule));background:color-mix(in srgb,var(--accent-soft) 54%,var(--surface));margin:2px 0 14px}
+.pill{font-weight:600;letter-spacing:.015em}
+.chip{background:color-mix(in srgb,var(--surface-2) 82%,var(--accent-soft));border-color:color-mix(in srgb,var(--rule-strong) 74%,var(--accent))}
+
+/* Les statistiques ne rivalisent plus avec la file de production. */
+.stats{margin:12px 0 5px;gap:8px}
+.stat{background:var(--surface);border:1px solid color-mix(in srgb,var(--rule-strong) 68%,transparent);box-shadow:none}
+.stat .v{font-size:20px;color:var(--ink)}
+.stat .l{margin-top:4px;color:var(--ink-3);font-size:8.5px}
+.fsection{margin:22px 0 9px;color:var(--accent-ink);font-size:10px}
+.list{padding-bottom:8px}
+
+/* Navigation : lisible au pouce, quelle que soit la longueur du libellé. */
+.navbar{padding:7px 8px calc(9px + env(safe-area-inset-bottom,0px));gap:4px;background:color-mix(in srgb,var(--surface) 93%,var(--bg));backdrop-filter:blur(18px)}
+.navbar .navitem{min-width:0;padding:7px 1px;border-radius:11px;flex:1}
+.navbar .navitem span{font-size:8.5px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.navbar .navitem.on{background:color-mix(in srgb,var(--accent-soft) 82%,transparent);color:var(--accent-ink)}
+.navbar .navitem.on svg{stroke:var(--accent-ink)}
+
+/* Cuisine : les cartes doivent se lire à deux mètres, avec le geste suivant
+   toujours évident. Les jaunes restent explicitement des prévisualisations. */
+#appwrap[data-app="cuisine"] .screen .content{padding-left:16px;padding-right:16px}
+#appwrap[data-app="cuisine"] .topbar{padding-left:2px;padding-right:2px}
+#appwrap[data-app="cuisine"] .card{padding:17px 16px;border-left:3px solid color-mix(in srgb,var(--accent) 68%,var(--rule));background:linear-gradient(115deg,color-mix(in srgb,var(--accent-soft) 26%,var(--surface)),var(--surface) 52%)}
+#appwrap[data-app="cuisine"] .card .who{font-size:17px}
+#appwrap[data-app="cuisine"] .card .job{font-size:14px;color:var(--ink)}
+#appwrap[data-app="cuisine"] .jtab{font-size:11px;padding:9px 5px}
+#appwrap[data-app="cuisine"] .cta{font-size:16px;padding:15px 16px}
+
+/* Commercial : la liste devient un CRM de terrain — nom, statut et prochaine
+   décision ressortent avant les métriques. */
+#appwrap[data-app="commercial"] .mkt-card{padding:11px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent-soft) 24%,var(--surface)),var(--surface) 55%)}
+#appwrap[data-app="commercial"] .mkt-media{border-color:color-mix(in srgb,var(--accent) 35%,var(--rule))}
+#appwrap[data-app="commercial"] .mkt-delai{color:var(--accent-ink)}
+#appwrap[data-app="commercial"] .mkt-catchip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+#appwrap[data-app="commercial"] .pricecard{background:linear-gradient(140deg,#21183e,color-mix(in srgb,var(--accent-soft) 72%,#100d1d))}
+
+/* Écran gérant : les réglages restent confortables, le flux "ce soir" est
+   compact et les actions délicates restent secondaires. */
+#appwrap[data-app="gerant"] .ctabar{margin-top:16px;padding-bottom:8px}
+#appwrap[data-app="gerant"] .card:first-child{border-color:color-mix(in srgb,var(--accent) 55%,var(--rule))}
+#appwrap[data-app="gerant"] .journaltabs{margin:10px 0 13px}
+
+@media (max-width:360px){
+  .screen .content{padding-left:14px;padding-right:14px}
+  .screen .topbar h1{font-size:25px}
+  .navbar .navitem span{font-size:8px}
+  .card .who,.mkt-title{font-size:14px}
+}

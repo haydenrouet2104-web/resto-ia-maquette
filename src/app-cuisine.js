@@ -209,8 +209,8 @@
     if (!corps) corps = '<div class="empty">Rien dans ce filtre.<br>La file se remplit toute seule dès qu\'une commande est confirmée.</div>';
 
     RIA.setContent(
-      RIA.screenHeader("Service · " + lvl.nom, "File des commandes",
-        D.resto.nom + " — écran ouvert en continu, mains pleines.") +
+      RIA.screenHeader("Production · " + lvl.nom, "À produire maintenant",
+        D.resto.nom + " — seules les commandes confirmées passent en préparation.") +
       stats + tabs + bandeaux + '<div class="body">' + corps + '</div>'
     );
 
@@ -403,7 +403,7 @@
         '</span><span class="v">' + eur(l.prix) + '</span></div>';
     }).join("") +
       (liv ? '<div class="line"><span class="n">Frais de livraison<small>' + esc(D.livraison.rayon) + ' de rayon</small></span><span class="v">' + eur(c.frais || 0) + '</span></div>' : "") +
-      '<div class="line"><span class="n"><b>Total à encaisser</b></span><span class="v">' + eur(c.total + (liv ? (c.frais || 0) : 0)) + '</span></div>' +
+      '<div class="line"><span class="n"><b>Total de la commande</b></span><span class="v">' + eur(c.total + (liv ? (c.frais || 0) : 0)) + '</span></div>' +
       '</div>' : '<div class="empty">Panier provisoire — l\'assistant est encore en ligne.</div>';
 
     var btn = boutonEtat(c);
@@ -1016,10 +1016,10 @@
     titre:"Écran de préparation", sub:"Les commandes confirmées arrivent ici, et rien d'autre.",
     cta:"Ouvrir le service",
     tabs:[
-      { id:"file",     lbl:"File",     svg:ICO.feu,     go:goFile },
-      { id:"tickets",  lbl:"Tickets",  svg:ICO.ticket,  go:goTickets },
-      { id:"ruptures", lbl:"Ruptures", svg:ICO.rupture, go:goRuptures },
-      { id:"charge",   lbl:"Charge",   svg:ICO.jauge,   go:goCharge }
+      { id:"file",     lbl:"Service",    svg:ICO.feu,     go:goFile },
+      { id:"tickets",  lbl:"Impression", svg:ICO.ticket,  go:goTickets },
+      { id:"ruptures", lbl:"Ruptures",   svg:ICO.rupture, go:goRuptures },
+      { id:"charge",   lbl:"Rythme",     svg:ICO.jauge,   go:goCharge }
     ]
   });
 

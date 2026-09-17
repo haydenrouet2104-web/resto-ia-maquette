@@ -99,6 +99,7 @@ var RIA = (function(){
     var app = APPS.filter(function(a){ return a.id === id; })[0];
     if (!app) return;
     courante = app;
+    $("appwrap").dataset.app = id;
     $("home").style.display = "none";
     $("appwrap").style.display = "flex";
     renderLanding(app);
@@ -110,6 +111,7 @@ var RIA = (function(){
     $("home").style.display = "flex";
     $("navbar").hidden = true; $("actionbar").hidden = true; $("histBtn").hidden = true;
     courante = null;
+    delete $("appwrap").dataset.app;
   }
 
   /* ---------- écran d'entrée de chaque application ---------- */
@@ -166,6 +168,7 @@ var RIA = (function(){
     if (!courante) return;
     var nb = $("navbar");
     nb.hidden = false;
+    nb.dataset.productNav = "true";
     nb.innerHTML = courante.tabs.map(function(t){
       return '<button class="navitem' + (t.id === active ? " on" : "") + '" data-t="' + t.id + '">' +
         svg(t.svg) + '<span>' + esc(t.lbl) + '</span></button>';

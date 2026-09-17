@@ -347,10 +347,13 @@
     RIA.renderNavbar("secteur");
 
     var i, cells = "";
-    for (i = 0; i < ORDRE.length; i++){
-      cells += '<div class="stat" data-st="' + ORDRE[i] + '"><div class="v">' + compte(ORDRE[i]) + '</div>' +
-               '<div class="l">' + esc(D.statuts[ORDRE[i]].nom) + '</div></div>';
-    }
+    /* L’accueil ne montre que les quatre décisions du jour. Les huit statuts
+       restent dans le CRM, où ils sont utiles sans surcharger le terrain. */
+    ["jamais","reserve","attente","client"].forEach(function(statut){
+      var libelle = statut === "attente" ? "À relancer" : D.statuts[statut].nom;
+      cells += '<div class="stat" data-st="' + statut + '"><div class="v">' + compte(statut) + '</div>' +
+               '<div class="l">' + esc(libelle) + '</div></div>';
+    });
 
     var vus = etat.p.slice(0);
     vus.sort(function(a, b){ return a.dist - b.dist; });
@@ -371,15 +374,15 @@
       "Tout ce qui est chargé dans cette zone a déjà été travaillé. Laissez une réservation expirer ou ouvrez une zone voisine.");
 
     RIA.setContent(
-      entete("Secteur du jour", D.commercial.zone,
-        "Priorité commerciale, pas un planning : vous gardez vos horaires et votre parcours.",
+      entete("Aujourd’hui", D.commercial.zone,
+        "Vos priorités de prospection, sans horaires ni itinéraire imposés.",
         RIA.chip(D.commercial.cibles + " cibles", I.cible) +
         RIA.chip(etat.p.length + " au CRM", I.doc) +
         RIA.chip(D.commercial.nom, I.pas)) +
       '<div class="stats">' + cells + '</div>' +
       '<div class="mkt-summary">' + (etat.fs
         ? 'Filtre <b>' + esc(D.statuts[etat.fs].nom) + '</b> — touchez à nouveau le compteur pour l’enlever.'
-        : 'Les <b>4 prospects les plus proches</b> de vous. Touchez un compteur ci-dessus pour filtrer.') + '</div>' +
+        : 'Les <b>4 prochains restaurants à regarder</b>. Touchez un compteur pour ouvrir la bonne liste.') + '</div>' +
       '<div class="mkt-rows" id="cSecList">' + liste(vus) + '</div>' +
       banniere('La zone est une <b>priorité commerciale</b>, pas un planning salarié. Le CRM attribue les prospects et les commissions ; il n’impose ni horaires, ni itinéraire, ni sanction.') +
       '<div class="fsection">Tournée suggérée</div>' +
@@ -472,8 +475,8 @@
     RIA.renderNavbar("prospects");
 
     RIA.setContent(
-      entete("Portefeuille", "Prospects",
-        "Huit statuts, une seule source de vérité. Toute modification se voit tout de suite dans les compteurs.") +
+      entete("CRM terrain", "Prospects",
+        "Un seul statut par restaurant : qui appeler, suivre ou laisser tranquille.") +
       '<div class="authfield"><label class="flabel">Recherche</label>' +
         '<input class="field" id="cQ" placeholder="Nom, type, rue, statut…" value="' + esc(etat.q) + '"></div>' +
       '<div class="mkt-catbar" id="cCat">' + filtres() + '</div>' +
@@ -548,8 +551,8 @@
     }
 
     RIA.setContent(
-      entete("Terrain", "Argumentaire",
-        "Vingt secondes debout dans la salle, hors rush. Ni tract, ni tablette : une démo et trois garanties.") +
+      entete("Outils terrain", "Parler du produit",
+        "Une accroche courte, une vraie démo et les réponses aux objections — hors rush.") +
       '<div class="lead-desc" id="cPitchTxt">' + esc(pitchTexte(segCourant())) + '</div>' +
       '<div class="code-rows">' +
         barre(RIA.chrono(etat.pitch), Math.round(etat.pitch / 20 * 100), "ok", "00:20") +
@@ -715,7 +718,7 @@
     }
 
     RIA.setContent(
-      entete("Rémunération", "Gains",
+      entete("Rémunération", "Mes revenus",
         RIA.eur(D.commission) + " par mois et par client actif, tant qu’il reste abonné.") +
       '<div class="pricecard"><div class="label">Commission de ' + esc(g[g.length - 1].m) + '</div>' +
         '<div class="price">' + RIA.eur0(dernierGain()) + '<small> /mois</small></div>' +
@@ -741,15 +744,6 @@
       banniere('Repère du business plan : <b>1 500 à 1 800 visites terrain par an</b> (220 jours × 6 à 10 visites), conversion supposée de <b>10 à 15 %</b>, soit 150 à 270 clients par an après montée en compétence. <b>Hypothèse à valider, pas une promesse.</b>') +
       '<div class="fsection">Règles d’attribution</div>' +
       '<div class="sub-steps">' + regles + '</div>' +
-      '<div class="fsection">Parrainage</div>' +
-      '<div class="code-rows">' +
-        '<div class="code-row"><div><div class="code-txt">NADIA-LYON7</div>' +
-          '<div class="code-sub">Votre code apporteur : il rattache le restaurant à votre portefeuille.</div></div>' +
-          '<button class="qchip" id="cCode">Copier</button></div>' +
-        '<div class="code-row"><div><div class="code-txt">PARRAIN-RIA</div>' +
-          '<div class="code-sub">Un autre apporteur s’inscrit avec ce code : vous suivez ses trois premiers clients.</div></div>' +
-          '<button class="qchip" id="cCode2">Copier</button></div>' +
-      '</div>' +
       RIA.note('Le client passe d’un modèle sans engagement à un essai gratuit puis un <b>engagement de 6 mois</b>. Votre commission suit ce cycle.')
     );
 
@@ -766,8 +760,6 @@
       $("cM").textContent = RIA.eur0(etat.clients * D.commission);
       $("cA").textContent = RIA.eur0(etat.clients * D.commission * 12);
     });
-    $("cCode").addEventListener("click", function(){ RIA.toast("Code NADIA-LYON7 copié — à donner au gérant à l’inscription."); });
-    $("cCode2").addEventListener("click", function(){ RIA.toast("Code PARRAIN-RIA copié."); });
 
     RIA.actionbar(
       '<button class="cta" id="cVersClients">' + svg(I.check) + 'Voir mes ' + porte.length + ' clients actifs</button>' +
@@ -815,10 +807,10 @@
     titre:"Resto IA — terrain", sub:"Le porte-à-porte chez l’indépendant, le seul avantage défendable.",
     cta:"Se connecter",
     tabs:[
-      { id:"secteur",   lbl:"Secteur",      svg:I.pin,    go:goSecteur },
-      { id:"prospects", lbl:"Prospects",    svg:I.doc,    go:goProspects },
-      { id:"argu",      lbl:"Argumentaire", svg:I.chat,   go:goArgu },
-      { id:"gains",     lbl:"Gains",        svg:I.euro,   go:goGains }
+      { id:"secteur",   lbl:"Aujourd’hui", svg:I.pin,    go:goSecteur },
+      { id:"prospects", lbl:"Prospects",   svg:I.doc,    go:goProspects },
+      { id:"argu",      lbl:"Outils",      svg:I.chat,   go:goArgu },
+      { id:"gains",     lbl:"Revenus",     svg:I.euro,   go:goGains }
     ]
   });
 

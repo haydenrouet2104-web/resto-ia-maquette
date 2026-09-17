@@ -151,16 +151,17 @@
     }).join("");
 
     RIA.setContent(
-      topbar("Service", D.resto.nom, RIA.chip(ouvert ? "En ligne" : "Stoppé", I.power) + RIA.chip(D.resto.tel, I.phone) + RIA.pill(c.nom, c.pill)) +
-      bloc(factcard("goCuisine", I.feu, "Écran cuisine", D.commandes.length + " commandes suivies · alerte sonore active", "Ouvrir")) +
-      fsection("Charge du service") + bloc('<div class="chips" id="chargeChips">' + chipsCharges + '</div>') + '<div class="lines">' +
+      topbar("Service en direct", "Ce soir", RIA.chip(ouvert ? "Assistant actif" : "Prise de commande en pause", I.power) + RIA.chip(D.resto.tel, I.phone) + RIA.pill(c.nom, c.pill)) +
+      banniere((D.commandes.filter(function(o){ return o.etat === "appel"; }).length ? "Un appel est en cours. " : "") + D.commandes.filter(function(o){ return o.etat === "attente"; }).length + " commande(s) attendent la validation du client : rien ne part en cuisine avant confirmation.") +
+      bloc(factcard("goCuisine", I.feu, "Production", D.commandes.length + " commandes suivies en temps réel · alerte sonore active", "Voir la file")) +
+      fsection("Mode de service") + bloc('<div class="chips" id="chargeChips">' + chipsCharges + '</div>') + '<div class="lines">' +
         ligne("Délai annoncé", "ce que l'IA promet au téléphone", ouvert ? c.delai + " min" : "aucune commande") + ligne("Retrait", "comptoir", ouvert ? "ouvert" : "suspendu") +
         ligne("Livraison", D.livraison.rayon + " · " + eur(livr.frais) + " de frais", c.id === "normal" || c.id === "rush" ? "ouverte" : "suspendue") + '</div>' +
-      '<div class="lines"><div class="row bot"><div class="bub">' + esc(phraseClient(c)) + '</div></div></div>' + RIA.note("<b>Règle interne :</b> " + esc(c.dit)) + fsection("Aujourd'hui") +
-      '<div class="stats">' + RIA.stat(String(j.appels), "appels pris") + RIA.stat(String(j.commandes), "commandes") + RIA.stat(String(j.expirees), "expirées") +
-        RIA.stat(eur0(j.ca), "encaissé") + RIA.stat(eur(j.panier), "panier moyen") + RIA.stat(RIA.dur(j.minutes * 60), "minutes IA") + '</div>' +
-      RIA.note("Coût IA de la journée : <b>" + esc(eur(j.minutes * D.coutMinute)) + "</b> à " + esc(eur(D.coutMinute)) + " la minute · " + j.transferts + " transferts vers le restaurant.") +
-      fsection("Dernières commandes") + '<div class="list">' + cartes + '</div>'
+      '<div class="lines"><div class="row bot"><div class="bub">' + esc(phraseClient(c)) + '</div></div></div>' + RIA.note("<b>Phrase annoncée :</b> " + esc(c.dit)) + fsection("Le service aujourd’hui") +
+      '<div class="stats">' + RIA.stat(String(j.appels), "appels traités") + RIA.stat(String(j.commandes), "commandes") + RIA.stat(String(j.expirees), "non validées") +
+        RIA.stat(eur0(j.ca), "valeur confirmée") + RIA.stat(eur(j.panier), "panier moyen") + RIA.stat(RIA.dur(j.minutes * 60), "temps IA") + '</div>' +
+      RIA.note("Valeur des commandes confirmées : <b>" + esc(eur0(j.ca)) + "</b>. Resto IA ne collecte aucun paiement. Coût IA indicatif : " + esc(eur(j.minutes * D.coutMinute)) + " · " + j.transferts + " transferts.") +
+      fsection("File en direct") + '<div class="list">' + cartes + '</div>'
     );
 
     surClic("goCuisine", function(){ RIA.toast("Ouverture de l'écran cuisine…"); RIA.openApp("cuisine"); });
@@ -172,8 +173,8 @@
     });
     surTous($("content"), ".card", function(){ sheetCommande(commande(parseInt(this.dataset.cmd, 10))); });
 
-    RIA.actionbar('<div class="ctabar"><button class="cta" id="btnStop">' + svg(ouvert ? I.stop : I.power) + (ouvert ? "Arrêter 30 minutes" : "Reprendre les commandes") + '</button><div class="secrow">' +
-      '<button class="sec" id="btnAppels">' + svg(I.phone) + 'Appel en cours</button>' + '<button class="sec" id="btnMenu">' + svg(I.carte) + 'Ruptures</button></div></div>');
+    RIA.actionbar('<div class="ctabar"><button class="cta" id="btnStop">' + svg(ouvert ? I.stop : I.power) + (ouvert ? "Mettre en pause 30 min" : "Reprendre les commandes") + '</button><div class="secrow">' +
+      '<button class="sec" id="btnAppels">' + svg(I.phone) + 'Suivre l’appel</button>' + '<button class="sec" id="btnMenu">' + svg(I.carte) + 'Gérer les ruptures</button></div></div>');
     surClic("btnStop", function(){
       if (charge().id === "stop"){
         chargeId = "normal"; reprise = "";
@@ -584,7 +585,7 @@
     RIA.renderNavbar("voix");
 
     RIA.setContent(
-      topbar("Assistant", "Voix et identité",
+      topbar("Assistant téléphonique", "Voix et identité",
         RIA.chip(voix.prenom, I.micro) + RIA.chip(voix.ton, I.check) + RIA.pill(testVoix ? "Appel test validé" : "Appel test requis", testVoix ? "signe" : "attente")) +
       (testVoix ? "" : banniere("Un appel test sur votre vrai menu est obligatoire avant activation. Un changement de voix ne s'applique jamais au milieu d'un appel en cours.")) + fsection("Prénom de l'assistant") +
       '<div class="authfield"><label class="flabel" for="vPrenom">Prénom annoncé au décrochage</label><input class="field" id="vPrenom" value="' + esc(voix.prenom) + '"></div>' + fsection("Ton") +
@@ -709,7 +710,7 @@
               : blocMentions();
 
     RIA.setContent(
-      topbar("Compte", D.resto.nom,
+      topbar("Réglages du restaurant", D.resto.nom,
         RIA.chip("Lyon 7e", I.horloge) + RIA.pill("Forfait " + f.nom, "signe")) + tabs([ { id:"horaires", lbl:"Horaires" }, { id:"livraison", lbl:"Livraison" },
              { id:"abo", lbl:"Abonnement" }, { id:"mentions", lbl:"Mentions" } ], compteTab) +
       corps
@@ -902,11 +903,11 @@
     titre:"Resto IA", sub:"L'assistant décroche quand la cuisine ne peut pas.",
     cta:"Se connecter",
     tabs:[
-      { id:"service", lbl:"Service", svg:I.power,  go:renderServiceScreen },
-      { id:"appels",  lbl:"Appels",  svg:I.phone,  go:renderAppelsScreen },
-      { id:"menu",    lbl:"Menu",    svg:I.carte,  go:renderMenuScreen },
-      { id:"voix",    lbl:"Voix",    svg:I.micro,  go:renderVoixScreen },
-      { id:"compte",  lbl:"Compte",  svg:I.profil, go:renderCompteScreen }
+      { id:"service", lbl:"Ce soir",    svg:I.power,  go:renderServiceScreen },
+      { id:"appels",  lbl:"Commandes", svg:I.phone,  go:renderAppelsScreen },
+      { id:"menu",    lbl:"Carte",     svg:I.carte,  go:renderMenuScreen },
+      { id:"voix",    lbl:"Assistant", svg:I.micro,  go:renderVoixScreen },
+      { id:"compte",  lbl:"Réglages",  svg:I.profil, go:renderCompteScreen }
     ]
   });
 })();
