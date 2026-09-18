@@ -1,0 +1,141 @@
+/* =========================================================================
+   Resto IA — socle.
+   Ce fichier ne contient QUE ce qui n'appartient à aucune application :
+   la scène, le châssis de l'appareil, l'écran d'accueil du téléphone et
+   le toast système.
+
+   Il n'y a ici aucun composant d'interface applicative — pas de carte, pas
+   de pastille, pas de barre d'onglets, pas de bouton. Chaque application
+   apporte sa propre feuille (cuisine.css, gerant.css, commercial.css) et
+   ne partage rien avec les deux autres : c'est la règle de la refonte.
+   ========================================================================= */
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:#0A0A0B;color:#EDEDEF;
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding:22px 16px;overflow-x:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px solid #6E8BFF;outline-offset:3px}
+
+/* ------------------------------- légende ------------------------------- */
+.legend{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase;color:#6F7076;
+  display:flex;align-items:center;gap:9px;text-align:center;flex:none;
+}
+.legend i{width:5px;height:5px;border-radius:50%;background:#4ADE80;display:block}
+.legend b{color:#9A9BA2;font-weight:500}
+
+/* ------------------------------- châssis ------------------------------- */
+.device{
+  position:relative;flex:none;
+  transform:scale(var(--k,1));transform-origin:center center;
+  transition:width .34s cubic-bezier(.3,.8,.3,1), height .34s cubic-bezier(.3,.8,.3,1);
+}
+.device .bezel{
+  position:absolute;inset:0;border-radius:var(--r,44px);
+  background:linear-gradient(150deg,#232428,#0C0C0E 46%,#1B1C20);
+  box-shadow:0 44px 90px -38px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.07);
+}
+.device .glass{
+  position:absolute;inset:var(--pad,10px);border-radius:calc(var(--r,44px) - var(--pad,10px));
+  overflow:hidden;background:#000;display:flex;flex-direction:column;
+}
+
+/* téléphone 390 × 844 */
+.device[data-format="phone"]{width:390px;height:844px;--r:46px;--pad:10px}
+.device[data-format="phone"] .notch{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  width:124px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:9;
+}
+
+/* tablette 1024 × 768, paysage — le vrai support en cuisine */
+.device[data-format="tablet"]{width:1024px;height:768px;--r:26px;--pad:12px}
+.device[data-format="tablet"] .notch{display:none}
+
+/* la scène : tout l'intérieur de l'écran */
+.scene{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;background:#000}
+
+/* barre d'accueil : présente seulement sur le téléphone */
+.homebar{
+  position:absolute;left:0;right:0;bottom:0;height:22px;z-index:60;
+  display:grid;place-items:center;
+}
+.device[data-format="tablet"] .homebar{height:18px}
+.homebar i{
+  width:128px;height:5px;border-radius:3px;background:rgba(255,255,255,.34);
+  transition:background .2s,transform .15s;display:block;
+}
+.homebar:hover i{background:rgba(255,255,255,.62)}
+.homebar:active i{transform:scaleX(.9)}
+
+/* ---------------------------- écran d'accueil ---------------------------- */
+.home{
+  position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+  padding:14px 22px 0;
+  background:
+    radial-gradient(115% 70% at 50% -6%, #1C2B4A 0%, transparent 56%),
+    radial-gradient(90% 55% at 12% 104%, #2A1F33 0%, transparent 62%),
+    linear-gradient(170deg,#0D1017,#08090C 62%,#0E0B10);
+  transition:opacity .3s ease, transform .38s cubic-bezier(.3,.8,.3,1), filter .3s ease;
+}
+.home.away{opacity:0;transform:scale(.94);filter:blur(2px);pointer-events:none}
+
+.hstatus{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:6px 6px 0;font-size:13px;font-weight:600;color:#fff;letter-spacing:.01em;
+  font-variant-numeric:tabular-nums;
+}
+.hstatus .r{display:flex;align-items:center;gap:6px;opacity:.9}
+.hstatus svg{width:15px;height:15px}
+
+.hgrid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:20px 10px;
+  padding:26px 0 0;align-content:start;flex:1;overflow:auto;scrollbar-width:none;
+}
+.hgrid::-webkit-scrollbar{display:none}
+.happ{display:grid;justify-items:center;gap:7px}
+.happ .ic{
+  position:relative;width:60px;height:60px;border-radius:15px;display:grid;place-items:center;
+  box-shadow:0 10px 22px -10px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .14s cubic-bezier(.3,.8,.3,1);
+}
+.happ button:active .ic{transform:scale(.9)}
+.happ .ic svg{width:29px;height:29px}
+.happ .lb{font-size:11px;color:rgba(255,255,255,.88);text-align:center;letter-spacing:.005em}
+.happ.deco .ic{filter:saturate(.62) brightness(.7)}
+.happ.deco .lb{color:rgba(255,255,255,.42)}
+.happ .bdg{
+  position:absolute;top:-5px;right:-6px;min-width:21px;height:21px;padding:0 6px;
+  border-radius:11px;background:#FF453A;color:#fff;font-size:11.5px;font-weight:600;
+  display:grid;place-items:center;box-shadow:0 0 0 2px #0B0D12;
+}
+.hdots{flex:none;display:flex;gap:6px;justify-content:center;padding:10px 0 12px}
+.hdots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.26)}
+.hdots i.on{background:rgba(255,255,255,.8)}
+.hdock{
+  flex:none;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+  margin:0 -8px 26px;padding:12px 12px;border-radius:26px;
+  background:rgba(255,255,255,.07);backdrop-filter:blur(16px);
+}
+.hdock .lb{display:none}
+
+/* ------------------------------ toast système ------------------------------ */
+.toast{
+  position:absolute;left:50%;bottom:44px;transform:translate(-50%,10px);
+  z-index:90;max-width:84%;padding:11px 16px;border-radius:11px;
+  background:rgba(22,22,24,.96);color:#F4F4F5;font-size:13px;line-height:1.4;
+  box-shadow:0 18px 44px -18px #000, 0 0 0 1px rgba(255,255,255,.1);
+  opacity:0;pointer-events:none;transition:opacity .2s, transform .24s cubic-bezier(.3,.8,.3,1);
+  text-align:center;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}

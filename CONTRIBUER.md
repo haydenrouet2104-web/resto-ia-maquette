@@ -46,8 +46,9 @@ pas de compte, pas de clé d'API. Ce sont des fichiers ouverts par le navigateur
 
 1. `resto-ia/maquette/README.md` — l'architecture et le contrat d'une application.
    Il explique surtout **d'où vient la forme** : tout est repris de `devis60/`.
-2. `devis60/design/v0/classes.md` — la liste des classes CSS qui existent. Tu
-   n'as le droit d'utiliser que celles-là.
+2. `resto-ia/maquette/directions/` — l'audit et les neuf directions dessinées.
+   Les trois retenues (cuisine C, gérant B, commercial A) sont la référence
+   visuelle : on ne s'en écarte pas sans raison.
 3. `resto-ia/docs/prd.md` — la décision produit. Elle fait foi.
 4. Le business plan le plus récent (`BUSINESS_PLAN_v1.7.pdf` chez Hayden) pour
    les chiffres. **Ne jamais inventer un chiffre** : tout ce qui s'affiche dans
@@ -64,10 +65,11 @@ Tous les chemins sont relatifs à `resto-ia/maquette/` dans le dépôt privé.
 | Idem pour l'app **cuisine** | `src/app-cuisine.js` | les deux autres apps |
 | Idem pour l'app **commercial** | `src/app-commercial.js` | les deux autres apps |
 | Un prix, un menu, un prospect, un forfait, un texte de règle | `src/data.js` | ne jamais écrire un chiffre en dur dans une app |
-| L'écran d'accueil du téléphone, les icônes de décor, l'ouverture d'appli, les toasts, les feuilles | `src/app.js` | |
-| Le châssis, la barre d'état, le pied de page | `index.html` | |
-| L'ergonomie, les espacements, les boutons | `src/skin.css` | `src/theme.css`, qui est une copie |
-| L'apparence de fond (palette, châssis, composants) | **normalement rien** — voir la règle 1 | `src/theme.css` |
+| L'apparence de l'app **cuisine** | `src/cuisine.css` | les deux autres feuilles |
+| Idem **gérant** | `src/gerant.css` | les deux autres feuilles |
+| Idem **commercial** | `src/commercial.css` | les deux autres feuilles |
+| L'écran d'accueil, l'ouverture d'appli, les toasts, le châssis | `src/app.js`, `src/base.css` | |
+| Le châssis, la barre d'état | `index.html` | |
 
 **Ajouter une quatrième application** : créer `src/app-xxx.js` sur le même
 contrat que les trois autres (il se termine par un `RIA.register({…})`), puis
@@ -76,13 +78,12 @@ sur l'écran d'accueil.
 
 ## 4. Les règles qui ne se négocient pas
 
-1. **`src/theme.css` est le CSS de devis60, copié tel quel — on ne l'édite
-   pas ; les corrections vont dans `src/skin.css`, chargé après.** Il contient les trois couches que le navigateur reçoit en production
-   (feuille de l'application, passe atelier, `devis60/src/theme.js`). Si
-   devis60 change de peau, on recopie ; on ne bricole pas la copie. Et
-   **aucune classe nouvelle** : un écran se compose avec les classes qui
-   existent déjà. S'il en manque une, c'est qu'un composant de devis60 fait
-   déjà le travail — cherche-le dans `theme.css`.
+1. **Chaque application a sa feuille et son préfixe : `k-` cuisine, `g-`
+   gérant, `m-` commercial.** Une classe sans préfixe dans un fichier
+   d'application est un bug. `src/base.css` ne contient que le châssis et
+   l'écran d'accueil : aucun composant applicatif n'y entre, sinon les trois
+   applications recommencent à se ressembler — c'est précisément ce que la
+   refonte a supprimé.
 2. **ES5 uniquement, comme devis60** : `var` et `function`, pas de `const`
    ni `let`, pas de fonction fléchée, pas de gabarit `` `…` ``, pas de module
    ES. Les fichiers sont chargés par des `<script>` classiques.
@@ -95,17 +96,15 @@ sur l'écran d'accueil.
 5. **Tous les minuteurs passent par `RIA.every()` et `RIA.after()`.** Ils sont
    annulés automatiquement quand on change d'onglet ou qu'on ferme l'appli. Un
    `setInterval` direct continue de tourner et finit par faire ramer la page.
-6. **Les animations sont celles de devis60** : le fondu de `setContent`,
-   l'écriture progressive des bulles, `.thinkDots`. N'en invente pas une qui
-   demanderait du CSS nouveau ; `prefers-reduced-motion` est déjà géré par
-   `theme.css`.
+6. **`prefers-reduced-motion` est respecté** : `api.reduit()` sert à couper
+   les animations longues.
 7. **Ne pas toucher `devis60/` ni `wrangler.toml` à la racine.** C'est un autre
    projet, déployé automatiquement sur Cloudflare à chaque push sur la branche
    par défaut. En particulier : ne jamais éditer `devis60/src/app-html.js`,
    c'est une chaîne JavaScript de 175 000 signes qui casse le Worker au moindre
    faux pas.
 8. **Toute modification d'un fichier de `src/` incrémente le `?v=` dans
-   `index.html`** — les cinq scripts et les deux feuilles de style, d'un coup.
+   `index.html`** — tous les scripts et `base.css`, d'un coup.
    Les navigateurs gardent l'ancienne version sinon, et on se retrouve avec un
    noyau périmé qui fait tourner du code neuf : l'appli casse à l'écran sans
    qu'aucun fichier soit en cause.

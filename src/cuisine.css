@@ -1,0 +1,277 @@
+/* =========================================================================
+   Resto IA — application CUISINE.
+   Direction C validée : « Tableau de production ».
+   Afficheur de départs de gare : bleu-nuit, filets horizontaux seuls,
+   minuteurs géants en colonne, bouton rectangulaire plein en bout de ligne.
+
+   Aucune carte, aucun bloc, aucune bordure verticale, aucun arrondi au-delà
+   de 4 px, aucune ombre décorative. Toutes les classes commencent par k-.
+   ========================================================================= */
+
+.k-app{
+  position:absolute;inset:0;padding-bottom:18px;      /* 18 px : la barre d'accueil */
+  display:flex;flex-direction:column;overflow:hidden;
+  background:#0B0F14;color:#E8ECF0;
+  font-family:'Archivo Narrow','Archivo',sans-serif;
+  font-variant-numeric:tabular-nums;
+  --kl:#1E2731; --kh:#161E26;
+  --k1:#93A0AC; --k2:#76838F; --k3:#5E6B77;
+  --kd:#48545F; --kdd:#3C4750;
+  --kamb:#E8A33D; --krdy:#55D3A6;
+}
+.k-app button{font:inherit;letter-spacing:inherit;text-align:inherit}
+.k-mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+
+/* --------------------------------- en-tête -------------------------------- */
+.k-head{
+  height:52px;flex:none;display:flex;align-items:center;gap:0;
+  padding:0 24px;border-bottom:1px solid var(--kl);
+}
+.k-brand{
+  font-size:19px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.k-meta{
+  margin-left:22px;display:flex;align-items:center;min-width:0;overflow:hidden;
+  font-size:11.5px;font-weight:600;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--k2);white-space:nowrap;
+}
+.k-meta i{font-style:normal;color:#2E3B47;margin:0 11px}
+.k-meta button{color:var(--k2);letter-spacing:.17em}
+.k-meta button:hover{color:#E8ECF0}
+.k-meta .on{color:var(--krdy)}
+.k-meta .off{color:var(--kd)}
+.k-meta .al{color:var(--kamb)}
+.k-clock{
+  margin-left:auto;padding-left:18px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:28px;font-weight:500;letter-spacing:.02em;
+}
+
+/* ------------------------------ navigation ------------------------------- */
+/* Pas de barre d'onglets : quatre entrées textuelles alignées dans l'en-tête. */
+.k-nav{
+  height:38px;flex:none;display:flex;align-items:stretch;
+  padding:0 24px;border-bottom:1px solid var(--kl);
+}
+.k-nav button{
+  display:flex;align-items:center;padding:0 20px;
+  font-size:12px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--kd);border-bottom:2px solid transparent;margin-bottom:-1px;
+}
+.k-nav button:first-child{padding-left:0}
+.k-nav button:hover{color:var(--k1)}
+.k-nav button.on{color:#E8ECF0;border-bottom-color:#E8ECF0}
+.k-nav .k-navr{
+  margin-left:auto;display:flex;align-items:center;
+  font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--k3);
+}
+
+/* -------------------------------- filtres -------------------------------- */
+.k-filt{
+  height:34px;flex:none;display:flex;align-items:center;
+  padding:0 24px;border-bottom:1px solid var(--kl);
+}
+.k-filt button{
+  display:flex;align-items:baseline;gap:7px;margin-right:24px;
+  font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--kd);
+}
+.k-filt button:hover{color:var(--k1)}
+.k-filt button.on{color:#E8ECF0}
+.k-filt button em{
+  font-style:normal;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;letter-spacing:0;color:var(--k3);
+}
+.k-filt button.on em{color:var(--kamb)}
+
+/* ------------------------- en-têtes de colonnes -------------------------- */
+.k-cols{
+  height:28px;flex:none;display:flex;align-items:center;
+  padding:0 24px;border-bottom:1px solid var(--kl);
+  font-size:11px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:var(--k3);
+}
+
+/* -------------------------------- tableau -------------------------------- */
+.k-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.k-body::-webkit-scrollbar{width:0;display:none}
+
+.k-row{
+  height:94px;flex:none;display:flex;align-items:center;width:100%;
+  padding:0 24px;border-bottom:1px solid var(--kh);text-align:left;
+}
+.k-row:hover{background:#0E141B}
+
+.k-n{
+  width:104px;flex:none;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:34px;font-weight:600;letter-spacing:-.035em;
+}
+.k-c{flex:1;min-width:0;padding-right:18px}
+.k-c b{display:block;font-size:20px;font-weight:600;line-height:1.14;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-c span{display:block;font-size:14px;color:var(--k2);letter-spacing:.03em;margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-m{width:130px;flex:none;font-size:13px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--k1);font-weight:600}
+.k-m small{display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;color:var(--k3);
+  letter-spacing:.02em;font-size:14px;margin-top:4px;text-transform:none}
+.k-t{width:186px;flex:none;text-align:right;padding-right:24px}
+.k-t u{text-decoration:none;display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:45px;font-weight:600;line-height:1;letter-spacing:-.045em}
+.k-t small{display:block;font-size:11px;font-weight:600;letter-spacing:.19em;text-transform:uppercase;
+  color:var(--k3);margin-top:5px}
+.k-a{width:178px;flex:none}
+
+.k-amb{color:var(--kamb)}
+.k-rdy{color:var(--krdy)}
+.k-dim,.k-dim .k-n,.k-dim .k-c b{color:var(--kd)}
+.k-dim .k-c span,.k-dim .k-m,.k-dim .k-m small{color:var(--kdd)}
+.k-strike{text-decoration:line-through;text-decoration-thickness:3px}
+
+/* ------------------- bouton plein en bout de ligne ------------------------ */
+.k-btn{
+  width:100%;height:62px;display:flex;align-items:center;justify-content:center;
+  background:#E8ECF0;color:#0B0F14;
+  font-size:15px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  text-align:center;line-height:1.1;padding:0 8px;
+}
+.k-btn:hover{background:#fff}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.amb{background:var(--kamb);color:#160E03}
+.k-btn.amb:hover{background:#F2B152}
+.k-btn.rdy{background:var(--krdy);color:#03150E}
+.k-btn.rdy:hover{background:#6BE0B6}
+.k-hold{
+  font-size:12.5px;letter-spacing:.19em;text-transform:uppercase;color:#4C5966;
+  text-align:center;font-weight:600;line-height:1.3;
+}
+
+/* bouton secondaire : rectangle en filet, jamais plein */
+.k-btn2{
+  height:52px;padding:0 22px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid #3A4753;color:var(--k1);
+  font-size:13.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+}
+.k-btn2:hover{border-color:#5E6B77;color:#E8ECF0}
+.k-btn2.on{border-color:var(--krdy);color:var(--krdy)}
+
+/* ------------------------- panneaux des autres écrans --------------------- */
+.k-pane{flex:1;min-height:0;display:flex;overflow:hidden}
+.k-colL{width:432px;flex:none;overflow-y:auto;scrollbar-width:none;border-right:0}
+.k-colR{flex:1;min-width:0;overflow-y:auto;scrollbar-width:none}
+.k-colL::-webkit-scrollbar,.k-colR::-webkit-scrollbar{width:0;display:none}
+.k-colL{box-shadow:1px 0 0 var(--kl)}   /* filet de séparation, pas une bordure de bloc */
+
+.k-lbl{
+  height:34px;display:flex;align-items:center;padding:0 24px;
+  border-bottom:1px solid var(--kl);
+  font-size:11px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:#4C5966;
+}
+.k-lbl em{font-style:normal;margin-left:auto;color:var(--k3);letter-spacing:.2em}
+
+.k-r{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  min-height:54px;padding:10px 24px;border-bottom:1px solid var(--kh);
+}
+button.k-r:hover{background:#0E141B}
+.k-r .k{width:118px;flex:none;font-size:11.5px;font-weight:600;letter-spacing:.19em;
+  text-transform:uppercase;color:var(--k3)}
+.k-r .v{flex:1;min-width:0;font-size:16.5px;font-weight:500;line-height:1.28}
+.k-r .v small{display:block;font-size:13px;color:var(--k2);margin-top:2px;line-height:1.3;
+  letter-spacing:.02em}
+.k-r .v em{font-style:normal;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:15.5px;color:var(--k1)}
+.k-r .s{
+  flex:none;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:#4C5966;
+}
+.k-r .s.amb{color:var(--kamb)}
+.k-r .s.rdy{color:var(--krdy)}
+.k-r.sel{background:#111922}
+.k-r.sel .v{color:#fff}
+.k-r.off .v{color:var(--kd)}
+
+.k-note{
+  padding:14px 24px;border-bottom:1px solid var(--kl);
+  font-size:13px;line-height:1.45;color:var(--k2);letter-spacing:.04em;
+}
+.k-note b{color:var(--k1);font-weight:600}
+.k-note.amb{color:var(--kamb)}
+.k-note.amb b{color:var(--kamb)}
+
+.k-acts{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--kl);
+  flex-wrap:wrap}
+.k-acts .k-btn{width:auto;flex:1;min-width:190px}
+
+/* pas-à-pas numérique : − valeur + */
+.k-step{display:flex;align-items:center;gap:0;flex:none}
+.k-step button{
+  width:38px;height:38px;display:grid;place-items:center;border:1px solid #3A4753;
+  color:var(--k1);font-size:17px;font-weight:600;line-height:1;
+}
+.k-step button:hover{border-color:#5E6B77;color:#E8ECF0}
+.k-step span{
+  min-width:88px;text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:19px;font-weight:600;color:#E8ECF0;
+}
+
+/* --------------------------- aperçu du ticket ---------------------------- */
+.k-tkwrap{display:flex;justify-content:center;padding:26px 24px 30px}
+.k-tk{
+  width:360px;padding:20px 18px;background:#0E141B;box-shadow:0 0 0 1px var(--kl);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12.5px;line-height:1.52;letter-spacing:0;color:#D7DEE5;white-space:pre-wrap;
+}
+.k-tk b{color:#fff;font-weight:600}
+.k-tk .mo{color:var(--kamb)}
+
+/* ------------------------ détail d'une commande -------------------------- */
+.k-over{
+  position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;
+  background:#0B0F14;padding-bottom:18px;
+}
+.k-ohead{
+  height:52px;flex:none;display:flex;align-items:center;padding:0 24px;
+  border-bottom:1px solid var(--kl);
+  font-size:12.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--k2);
+}
+.k-ohead button{color:var(--k2);letter-spacing:.24em}
+.k-ohead button:hover{color:#E8ECF0}
+.k-ohead .k-clock{font-size:22px;color:#E8ECF0}
+
+.k-hero{
+  height:96px;flex:none;display:flex;align-items:center;padding:0 24px;
+  border-bottom:1px solid var(--kl);
+}
+.k-hero .l b{display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:50px;font-weight:600;line-height:.94;letter-spacing:-.05em}
+.k-hero .l span{display:block;font-size:13px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--k1);margin-top:7px}
+.k-hero .r{margin-left:auto;text-align:right}
+.k-hero .r u{text-decoration:none;display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:47px;font-weight:600;line-height:1;letter-spacing:-.045em}
+.k-hero .r small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--k3);margin-top:5px}
+
+.k-li{display:flex;align-items:flex-start;gap:14px;padding:12px 24px;border-bottom:1px solid var(--kh)}
+.k-li .q{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;
+  width:44px;flex:none;line-height:1.1}
+.k-li .x{flex:1;min-width:0}
+.k-li .x b{display:block;font-size:18px;font-weight:600;line-height:1.16}
+.k-li .x small{display:block;font-size:13.5px;color:var(--k2);margin-top:2px;line-height:1.3}
+.k-li .x small.d{color:var(--kamb);letter-spacing:.09em;text-transform:uppercase;
+  font-weight:600;font-size:12.5px}
+.k-li .p{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:16px;color:var(--k1);padding-top:3px}
+
+.k-tot{display:flex;align-items:baseline;padding:15px 24px;border-bottom:1px solid var(--kl);
+  font-size:12px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--k3)}
+.k-tot i{font-style:normal;margin-left:auto;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:30px;font-weight:600;color:#E8ECF0;letter-spacing:-.03em}
+
+.k-ofoot{
+  margin-top:auto;flex:none;display:flex;align-items:center;gap:12px;
+  padding:14px 24px;border-top:1px solid var(--kl);
+}
+.k-ofoot .k-btn{width:auto;flex:1;height:66px}
+
+.k-empty{padding:40px 24px;color:var(--kd);font-size:15px;letter-spacing:.06em;line-height:1.5}
