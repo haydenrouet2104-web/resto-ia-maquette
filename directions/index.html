@@ -81,6 +81,26 @@ section{margin-top:56px;border-top:1px solid var(--rule);padding-top:26px}
 .decision{margin-top:26px;padding:20px 0 0;border-top:2px solid var(--ink)}
 .decision p{max-width:62ch;color:var(--ink-2)}
 .decision .q{font-family:var(--serif);font-size:18px;color:var(--ink);margin-bottom:10px}
+
+.acces{margin-top:38px;border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);padding:20px 0 18px}
+.acces .kicker{display:block;margin-bottom:14px}
+.acces-l{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+@media(max-width:600px){.acces-l{grid-template-columns:1fr}}
+.acces-l a{
+  display:block;padding:14px 20px 14px 0;text-decoration:none;color:var(--ink);
+  border-right:1px solid var(--rule);
+}
+.acces-l a:last-child{border-right:0}
+@media(max-width:600px){
+  .acces-l a{border-right:0;border-bottom:1px solid var(--rule);padding:13px 0}
+  .acces-l a:last-child{border-bottom:0}
+}
+.acces-l a + a{padding-left:20px}
+@media(max-width:600px){.acces-l a + a{padding-left:0}}
+.acces-l b{display:block;font-family:var(--serif);font-size:20px;font-weight:600;color:var(--accent);letter-spacing:-.01em}
+.acces-l a:hover b{text-decoration:underline}
+.acces-l span{display:block;font-size:13px;color:var(--ink-3);margin-top:3px}
+.acces-n{margin-top:14px;font-size:13.5px;color:var(--ink-3)}
 code{font-family:var(--mono);font-size:.9em;background:#F1F1EE;padding:1px 5px}
 </style>
 </head>
@@ -90,6 +110,17 @@ code{font-family:var(--mono);font-size:.9em;background:#F1F1EE;padding:1px 5px}
   <span class="kicker">Resto IA · refonte UI/UX · phase 1</span>
   <h1>Trois directions par application.<br>Aucune ne ressemble à l'actuelle.</h1>
   <p class="lede">L'interface d'aujourd'hui empile des cartes arrondies et met chaque information au même niveau. Les fonctions, elles, sont bonnes : elles sont toutes conservées. Ce qui change, c'est la forme — et elle change pour de bon, pas par retouches.</p>
+
+
+  <div class="acces">
+    <span class="kicker">Les maquettes</span>
+    <div class="acces-l">
+      <a href="cuisine.html"><b>Cuisine</b><span>Rail · Colonnes · Tableau</span></a>
+      <a href="gerant.html"><b>Gérant</b><span>Journal · Console · Fiche</span></a>
+      <a href="commercial.html"><b>Commercial</b><span>Carte · Pile · Carnet</span></a>
+    </div>
+    <p class="acces-n">Trois écrans par direction. Ce qui suit est l'audit qui les justifie.</p>
+  </div>
 
   <!-- ------------------------------------------------------------- -->
   <section>
